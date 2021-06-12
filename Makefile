@@ -1,4 +1,4 @@
-#CXX = sh3eb-elf-gcc-11.1.1	# Recommanded C++ compiler
+#CXX = sh3eb-elf-gcc-11.1.1	# Recommended C++ compiler
 CXXFLAGS = -std=c++20 -Wall -Wextra -Wno-builtin-declaration-mismatch -O3 -m3 -mb -mrenesas -nostdlib
 
 OUT = notec
@@ -11,7 +11,7 @@ OBJ = $(SRC:.cpp=.o)
 all: $(OUT_G1A)
 
 $(OUT_ELF): $(OBJ)
-	$(CXX) $(CXXFLAGS) $(OBJ) -T lnk/notec.ld lnk/crt0.s -o $(OUT_ELF) -lgcc -lfx
+	$(CXX) $(CXXFLAGS) $(OBJ) -T lnk/notec.ld lnk/crt0.s -o $(OUT_ELF) -lfx
 
 $(OUT_BIN): $(OUT_ELF)
 	sh-elf-objcopy -R .comment -R .bss -O binary $(OUT_ELF) $(OUT_BIN)
