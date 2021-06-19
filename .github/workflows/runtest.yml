@@ -4,6 +4,10 @@ jobs:
   Run:
     runs-on: ubuntu-latest
     steps:
+      - name: Ls rep
+        run: ls ${{ github.workspace }}
+      - name: Cat rep Makefile
+        run: cat ${{ github.workspace }}/Makefile
       - name: Build tests
         run: make -C ${{ github.workspace }} test -j16
       - name: Run tests
