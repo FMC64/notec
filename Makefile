@@ -7,7 +7,7 @@ OUT_G1A = $(OUT).g1a
 
 COMMON_SRC = 
 OUT_SRC = src/crs/main.cpp
-TEST_SRC = src/test/token.cpp
+TEST_SRC = src/test/main.cpp src/test/token.cpp
 
 COMMON_OBJ = $(COMMON_SRC:.cpp=.o)
 OUT_OBJ = $(OUT_SRC:.cpp=.o)
@@ -41,7 +41,7 @@ $(OUT_G1A): $(OUT_BIN)
 	g1a-wrapper $(OUT_BIN) -o $(OUT_G1A) -i ./lnk/icon.bmp
 
 $(TEST_OUT): $(TEST_ALL_OBJ)
-	$(CXX) $(CXXFLAGS) $(TEST_ALL_OBJ) -o $(TEST_OUT) -lboost_test_exec_monitor-mt
+	$(CXX) $(CXXFLAGS) $(TEST_ALL_OBJ) -o $(TEST_OUT)
 
 test: $(TEST_OUT)
 
