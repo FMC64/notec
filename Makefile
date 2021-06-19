@@ -1,4 +1,4 @@
-CXXFLAGS = -std=c++20 -Wall -Wextra -O3 $(CXXFLAGS_EXTRA)
+CXXFLAGS = -std=c++20 -Wall -Wextra -O3 $(CXXFLAGS_EXTRA) -I src
 
 OUT = notec
 OUT_ELF = $(OUT).elf
@@ -6,7 +6,7 @@ OUT_BIN = $(OUT).bin
 OUT_G1A = $(OUT).g1a
 
 COMMON_SRC = 
-OUT_SRC = src/main.cpp
+OUT_SRC = src/crs/main.cpp
 TEST_SRC = src/test/token.cpp
 
 COMMON_OBJ = $(COMMON_SRC:.cpp=.o)

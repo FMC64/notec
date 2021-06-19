@@ -1,9 +1,10 @@
 #include <fxlib.h>
+#include "cint.hpp"
 
 int main(void)
 {
 	locate(1, 1);
-	Print((unsigned char*)"notec, NOTE-C but better!! :D");
+	Print(reinterpret_cast<const uint8_t*>("NOTE-C"));
 	while (1) {
 		unsigned int key;
 		GetKey(&key);
