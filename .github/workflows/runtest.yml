@@ -4,6 +4,8 @@ jobs:
   Run:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v2
       - name: Ls rep
         run: ls ${{ github.workspace }}
       - name: Cat rep Makefile
