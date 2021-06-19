@@ -4,13 +4,13 @@ jobs:
   Run:
     runs-on: ubuntu-latest
     steps:
+      - name: Install g++ 10
+        run: sudo apt install g++-10
       - name: Checkout repo
         uses: actions/checkout@v2
-      - name: Ls rep
-        run: ls ${{ github.workspace }}
-      - name: Cat rep Makefile
-        run: cat ${{ github.workspace }}/Makefile
       - name: Build tests
-        run: make -C ${{ github.workspace }} test -j16
+        env:
+          CXX: g++-10
+        run: make -C ${{ github.workspace }} test -j4
       - name: Run tests
         run: ${{ github.workspace }}/test.exe
