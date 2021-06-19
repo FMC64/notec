@@ -4,6 +4,7 @@ jobs:
   Run:
     runs-on: ubuntu-latest
     steps:
-      - run: cd ${{ github.workspace }}
-      - run: make test -j16
-      - run: ./test.exe
+      - name: Build tests
+        run: make -C ${{ github.workspace }} test -j16
+      - name: Run tests
+        run: ${{ github.workspace }}/test.exe
