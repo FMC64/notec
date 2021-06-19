@@ -21,7 +21,8 @@ void test_run(const char *name, test_t *test)
 int main(void)
 {
 	printf("[SUM] PASS: %zu / %zu\n", pass, count);
-	if (fail > 0)
+	auto any_fail = fail > 0;
+	if (any_fail)
 		printf("\n\t/!\\   [WRN] FAIL: %zu / %zu   /!\\\n", fail, count);
-	return 0;
+	return any_fail ? 1 : 0;
 }

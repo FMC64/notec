@@ -6,8 +6,8 @@ OUT_BIN = $(OUT).bin
 OUT_G1A = $(OUT).g1a
 
 COMMON_SRC = 
-OUT_SRC = src/crs/main.cpp
-TEST_SRC = src/test/main.cpp src/test/token.cpp
+OUT_SRC = $(wildcard src/crs/*.cpp)
+TEST_SRC = $(wildcard src/test/*.cpp)
 
 COMMON_OBJ = $(COMMON_SRC:.cpp=.o)
 OUT_OBJ = $(OUT_SRC:.cpp=.o)
