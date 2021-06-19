@@ -1,0 +1,9 @@
+name: Tests
+on: [push]
+jobs:
+  Run:
+    runs-on: ubuntu-latest
+    steps:
+      - run: cd ${{ github.workspace }}
+      - run: make test -j16
+      - run: ./test.exe
