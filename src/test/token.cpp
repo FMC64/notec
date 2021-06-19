@@ -29,9 +29,10 @@ public:
 
 test_case(dummy_test)
 {
-	throw "dummy fail";
+	test_assert(false == false);
 }
 
 test_case(dummy_test_forgotten)
 {
+	test_assert(true == false);
 }

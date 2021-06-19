@@ -25,13 +25,13 @@ define n
 
 endef
 
-$(OUT_ELF):
+check_sh_elf_cxx:
 ifndef SH_ELF_CXX
 	$(error "SH_ELF_CXX must be defined for cross-compilation.$nYou can still build 'test' target for running unit local tests")
 endif
 $(OUT_ELF): CXX = $(SH_ELF_CXX)
 $(OUT_ELF): CXXFLAGS_EXTRA = -Wno-builtin-declaration-mismatch -m3 -mb -mrenesas -nostdlib
-$(OUT_ELF): $(OUT_ALL_OBJ)
+$(OUT_ELF): check_sh_elf_cxx $(OUT_ALL_OBJ)
 	$(CXX) $(CXXFLAGS) $(OUT_ALL_OBJ) -T lnk/notec.ld lnk/crt0.s -o $(OUT_ELF) -lfx
 
 $(OUT_BIN): $(OUT_ELF)
@@ -48,4 +48,4 @@ test: $(TEST_OUT)
 clean:
 	rm -f $(COMMON_OBJ) $(OUT_OBJ) $(TEST_OBJ) $(OUT_ELF) $(OUT_BIN) $(OUT_G1A) $(TEST_OUT)
 
-.PHONY: all clean
+.PHONY: all clean check_sh_elf_cxx
