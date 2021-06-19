@@ -1,0 +1,16 @@
+name: Tests
+on: [push]
+jobs:
+  Run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install g++ 10
+        run: sudo apt install g++-10
+      - name: Checkout repo
+        uses: actions/checkout@v2
+      - name: Build tests
+        env:
+          CXX: g++-10
+        run: make -C ${{ github.workspace }} test -j4
+      - name: Run tests
+        run: ${{ github.workspace }}/test.exe
