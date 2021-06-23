@@ -1,6 +1,7 @@
 #ifdef CINT_HOST
 
 #include <cstdint>
+#include <cstddef>
 
 #else
 
