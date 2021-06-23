@@ -40,6 +40,7 @@ $(OUT_BIN): $(OUT_ELF)
 $(OUT_G1A): $(OUT_BIN)
 	g1a-wrapper $(OUT_BIN) -o $(OUT_G1A) -i ./lnk/icon.bmp
 
+$(TEST_OBJ): CXXFLAGS_EXTRA = -D CINT_HOST
 $(TEST_OUT): $(TEST_ALL_OBJ)
 	$(CXX) $(CXXFLAGS) $(TEST_ALL_OBJ) -o $(TEST_OUT)
 

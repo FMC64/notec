@@ -1,4 +1,8 @@
-#pragma once
+#ifdef CINT_HOST
+
+#include <cstdint>
+
+#else
 
 using int8_t = char;
 using uint8_t = unsigned char;
@@ -14,3 +18,8 @@ using int32_t = long;
 using uint32_t = unsigned long;
 
 static_assert(sizeof(int32_t) == 4 && sizeof(uint32_t) == 4, "(u)int32_t != 4");
+
+#define _SIZE_T
+using size_t = uint32_t;
+
+#endif

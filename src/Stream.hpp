@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cint.hpp"
+
 class Stream
 {
 public:
