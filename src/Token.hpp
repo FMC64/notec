@@ -124,11 +124,11 @@ class Stream
 
 	inline void adv_i(Type type)
 	{
-		if (type == Type::NumberLiteral) {
-			while (Char::is_num_lit(*m_i))
+		if (type == Type::Identifier) {
+			while (Char::trait_table[*m_i] & Char::Trait::is_identifier)
 				m_i++;
-		} else if (type == Type::Identifier) {
-			while (Char::is_identifier(*m_i))
+		} else if (type == Type::NumberLiteral) {
+			while (Char::trait_table[*m_i] & Char::Trait::is_num_lit)
 				m_i++;
 		}
 	}
