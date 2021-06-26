@@ -10,40 +10,103 @@ enum class Type : char {
 	ValueChar8 = 4
 };
 
-class Stream
-{
-	static inline bool is_whitespace(char c)
+namespace Char {
+	static inline constexpr bool is_whitespace(char c)
 	{
 		return c <= 32;
 	}
 
-	static inline bool is_digit(char c)
+	static inline constexpr bool is_digit(char c)
 	{
 		return c >= '0' && c <= '9';
 	}
 
-	static inline bool is_alpha(char c)
+	static inline constexpr bool is_digit_first(char c)
+	{
+		return is_digit(c) || c == '.';
+	}
+
+	static inline constexpr bool is_alpha(char c)
 	{
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
 	}
 
-	static inline bool is_num_lit(char c)
+	static inline constexpr bool is_num_lit(char c)
 	{
-		return is_digit(c) || c == '.' || is_alpha(c);
+		return is_digit_first(c) || is_alpha(c);
 	}
 
-	static inline bool is_identifier(char c)
+	static inline constexpr bool is_identifier_first(char c)
 	{
-		return is_alpha(c) || (c == '_') || is_digit(c);
+		return is_alpha(c) || c == '_';
+	}
+
+	static inline constexpr bool is_identifier(char c)
+	{
+		return is_identifier_first(c) || is_digit(c);
 	}
 
 	static inline constexpr char eob = 0x7F;
 
+	template <size_t Size>
+	struct Table
+	{
+		char data[Size];
+		static inline constexpr uint8_t csize = static_cast<uint8_t>(Size);
+
+		template <typename T>
+		constexpr auto& operator[](T i)
+		{
+			return data[i];
+		}
+
+		template <typename T>
+		constexpr auto operator[](T i) const
+		{
+			return data[i];
+		}
+	};
+	using STable = Table<0x80>;
+
+	namespace Trait {
+		static inline constexpr char is_whitespace = 1;
+		static inline constexpr char is_digit = 2;
+		static inline constexpr char is_digit_first = 4;
+		static inline constexpr char is_alpha = 8;
+		static inline constexpr char is_num_lit = 16;
+		static inline constexpr char is_identifier_first = 32;
+		static inline constexpr char is_identifier = 64;
+	}
+
+	static inline constexpr STable computeTraitTable(void)
+	{
+		STable res;
+		for (uint8_t i = 0; i < res.csize; i++) {
+			auto &c = res[i];
+			c = 0;
+			#define TOKEN_CHAR_TRAIT_TABLE_NEXT(name) if (name(static_cast<char>(i))) c |= Trait::name
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_whitespace);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_digit);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_digit_first);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_alpha);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_num_lit);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_identifier_first);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_identifier);
+			#undef TOKEN_CHAR_TRAIT_TABLE_NEXT
+		}
+		return res;
+	}
+	static inline constexpr STable trait_table = computeTraitTable();
+}
+
+class Stream
+{
 	inline Type tok_type(char c)
 	{
-		if (is_digit(c) || c == '.')
+		auto t = Char::trait_table[c];
+		if (t & Char::Trait::is_digit_first)
 			return Type::NumberLiteral;
-		else if (is_alpha(c) || c == '_')
+		else if (t & Char::Trait::is_identifier_first)
 			return Type::Identifier;
 		else if (c == '\"')
 			return Type::StringLiteral;
@@ -55,17 +118,17 @@ class Stream
 
 	inline void adv_wspace(void)
 	{
-		while (is_whitespace(*m_i))
+		while (Char::is_whitespace(*m_i))
 			m_i++;
 	}
 
 	inline void adv_i(Type type)
 	{
 		if (type == Type::NumberLiteral) {
-			while (is_num_lit(*m_i))
+			while (Char::is_num_lit(*m_i))
 				m_i++;
 		} else if (type == Type::Identifier) {
-			while (is_identifier(*m_i))
+			while (Char::is_identifier(*m_i))
 				m_i++;
 		}
 	}
@@ -73,7 +136,7 @@ class Stream
 	inline size_t feed_buf(void)
 	{
 		auto r = m_stream.read(m_buf, buf_size);
-		m_buf[r] = eob;
+		m_buf[r] = Char::eob;
 		return r;
 	}
 
@@ -92,13 +155,13 @@ public:
 		m_buf(m_buf_raw + 2 + max_token_size)
 	{
 		m_i = m_buf;
-		*m_i = eob;
+		*m_i = Char::eob;
 	}
 
 	inline char* next(void)
 	{
 		adv_wspace();
-		while (*m_i == eob) {
+		while (*m_i == Char::eob) {
 			if (!feed_buf())
 				return nullptr;
 			adv_wspace();
@@ -106,7 +169,7 @@ public:
 		char *res = m_i;
 		auto type = tok_type(*res);
 		adv_i(type);
-		if (*m_i == eob) {
+		if (*m_i == Char::eob) {
 			if (feed_buf()) {
 				size_t size = m_i - res;
 				char *nres = m_buf - size;
@@ -115,7 +178,7 @@ public:
 				res = nres;
 				m_i = m_buf;
 				adv_i(type);
-				if (*m_i == eob) {
+				if (*m_i == Char::eob) {
 					while (true);
 					//throw "Max token size is 255";
 				}

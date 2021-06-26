@@ -1,4 +1,4 @@
-CXXFLAGS = -std=c++20 -Wall -Wextra -O3 $(CXXFLAGS_EXTRA) -I src
+CXXFLAGS = -std=c++20 -Wall -Wextra -O3 -Wno-char-subscripts $(CXXFLAGS_EXTRA) -I src
 
 OUT = notec
 OUT_ELF = $(OUT).elf
