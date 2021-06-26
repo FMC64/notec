@@ -85,11 +85,6 @@ namespace Char {
 		return c >= '0' && c <= '9';
 	}
 
-	static inline constexpr bool is_digit_first(char c)
-	{
-		return is_digit(c) || c == '.';
-	}
-
 	static inline constexpr bool is_alpha(char c)
 	{
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z');
@@ -97,7 +92,12 @@ namespace Char {
 
 	static inline constexpr bool is_num_lit(char c)
 	{
-		return is_digit_first(c) || is_alpha(c);
+		return is_digit(c) || c == '.' || is_alpha(c);
+	}
+
+	static inline constexpr bool is_num_lit_point(char c)
+	{
+		return c == '.';
 	}
 
 	static inline constexpr bool is_identifier_first(char c)
@@ -133,9 +133,8 @@ namespace Char {
 	using STable = Table<0x80>;
 
 	namespace Trait {
-		static inline constexpr char is_whitespace = 1;
-		static inline constexpr char is_digit = 2;
-		static inline constexpr char is_digit_first = 4;
+		static inline constexpr char is_num_lit_point = 1;
+		static inline constexpr char is_digit = 4;
 		static inline constexpr char is_alpha = 8;
 		static inline constexpr char is_num_lit = 16;
 		static inline constexpr char is_identifier_first = 32;
@@ -149,9 +148,8 @@ namespace Char {
 			auto &c = res[i];
 			c = 0;
 			#define TOKEN_CHAR_TRAIT_TABLE_NEXT(name) if (name(static_cast<char>(i))) c |= Trait::name
-			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_whitespace);
+			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_num_lit_point);
 			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_digit);
-			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_digit_first);
 			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_alpha);
 			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_num_lit);
 			TOKEN_CHAR_TRAIT_TABLE_NEXT(is_identifier_first);
@@ -166,8 +164,10 @@ namespace Char {
 	{
 		constexpr auto type_for_char = [](char c) -> Token::Type {
 			auto t = Char::trait_table[c];
-			if (t & Char::Trait::is_digit_first)
+			if (t & Char::Trait::is_digit)
 				return Token::Type::NumberLiteral;
+			else if (t & Char::Trait::is_num_lit_point)
+				return static_cast<Type>(static_cast<char>(0x08) | static_cast<char>(Type::NumberLiteral));	// Special NumberLiteralPoint
 			else if (t & Char::Trait::is_identifier_first)
 				return Token::Type::Identifier;
 			else if (c == '\"')
@@ -609,6 +609,34 @@ class Stream
 		return false;
 	}
 
+	inline void carriage_buf(void)
+	{
+		size_t size = m_i - m_res;
+		char *nres = m_buf - size;
+		for (size_t i = 0; i < size; i++)
+			nres[i] = m_res[i];
+		m_res = nres;
+		m_i = m_buf;
+	}
+
+	inline bool adv_number_literal_point(void)
+	{
+		char had = *m_i;
+		m_i++;
+		if (*m_i == Char::eob) {
+			if (feed_buf()) {
+				carriage_buf();
+			}
+		}
+		if (Char::trait_table[*m_i] & Char::Trait::is_digit)
+			return adv_number_literal();
+		else {
+			m_i--;
+			*m_i = had;
+			return adv_operator();
+		}
+	}
+
 	inline bool adv_identifier(void)
 	{
 		while (Char::trait_table[*m_i] & Char::Trait::is_identifier)
@@ -668,9 +696,15 @@ class Stream
 
 	using adv_t = bool (Stream::*)(void);
 	static inline constexpr adv_t adv_types[] = {
-		&Stream::adv_number_literal,
-		&Stream::adv_identifier,
-		&Stream::adv_operator
+		&Stream::adv_number_literal,	// 0
+		&Stream::adv_identifier,	// 1
+		&Stream::adv_operator,		// 2
+		nullptr,	// 3
+		nullptr,	// 4
+		nullptr,	// 5
+		nullptr,	// 6
+		nullptr,	// 7
+		&Stream::adv_number_literal_point	// 8
 	};
 
 	inline bool adv_i(Type type)
@@ -722,12 +756,7 @@ public:
 		} else {
 			if (*m_i == Char::eob) {
 				if (feed_buf()) {
-					size_t size = m_i - m_res;
-					char *nres = m_buf - size;
-					for (size_t i = 0; i < size; i++)
-						nres[i] = m_res[i];
-					m_res = nres;
-					m_i = m_buf;
+					carriage_buf();
 					adv_i(type);
 					if (*m_i == Char::eob) {
 						m_error = "Max token size is 255";
@@ -736,7 +765,7 @@ public:
 				}
 			}
 			m_res[-1] = m_i - m_res;
-			m_res[-2] = static_cast<char>(type);
+			m_res[-2] = static_cast<char>(type) & 0x07;
 			return m_res - 2;
 		}
 	}

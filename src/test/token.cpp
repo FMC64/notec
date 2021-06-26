@@ -36,7 +36,7 @@ test_case(token_0)
 
 test_case(token_1)
 {
-	StrStream s("\t\t12   a b\tc _90 0.2e10\n");
+	StrStream s("\t\t12   a b\tc _90 0.2e10 .2e10\n");
 	Token::Stream toks(s);
 	next_assert(toks, Type::NumberLiteral, "12");
 	next_assert(toks, Type::Identifier, "a");
@@ -44,6 +44,7 @@ test_case(token_1)
 	next_assert(toks, Type::Identifier, "c");
 	next_assert(toks, Type::Identifier, "_90");
 	next_assert(toks, Type::NumberLiteral, "0.2e10");
+	next_assert(toks, Type::NumberLiteral, ".2e10");
 	test_assert(toks.next() == nullptr);
 }
 
@@ -76,5 +77,15 @@ test_case(token_5)
 	StrStream s("<<=");
 	Token::Stream toks(s);
 	next_assert_op(toks, Type::Operator, Op::BitLeftEqual);
+	test_assert(toks.next() == nullptr);
+}
+
+test_case(token_6)
+{
+	StrStream s(". . .");
+	Token::Stream toks(s);
+	next_assert_op(toks, Type::Operator, Op::Point);
+	next_assert_op(toks, Type::Operator, Op::Point);
+	next_assert_op(toks, Type::Operator, Op::Point);
 	test_assert(toks.next() == nullptr);
 }
