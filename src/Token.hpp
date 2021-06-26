@@ -223,6 +223,27 @@ namespace Char {
 		return res;
 	}
 	static inline constexpr STable op_table = computeOpTable();
+
+	static inline constexpr STable computeOpNodeTable(void)
+	{
+		STable res;
+		for (uint8_t i = 0; i < res.csize; i++)
+			res[i] = 0x80;
+
+		res['='] = 0;
+		res['+'] = 1;
+		res['-'] = 2;
+		res['>'] = 3;
+		res['<'] = 4;
+		res['&'] = 5;
+		res['|'] = 6;
+		res['*'] = 7;
+		res['/'] = 8;
+		res['.'] = 9;
+
+		return res;
+	}
+	static inline constexpr STable op_node_table = computeOpNodeTable();
 }
 
 namespace OpCplx {
@@ -260,7 +281,7 @@ namespace OpCplx {
 		}
 		if (node_ndx != empty) {
 			res |= has_next_node;
-			res |= node_ndx & next_node_mask;
+			res |= (node_ndx << 4) & next_node_mask;
 		}
 		return res;
 	}
@@ -581,27 +602,80 @@ class Stream
 			m_i++;
 	}
 
-	inline void adv_number_literal(void)
+	inline bool adv_number_literal(void)
 	{
 		while (Char::trait_table[*m_i] & Char::Trait::is_num_lit)
 			m_i++;
+		return false;
 	}
 
-	inline void adv_identifier(void)
+	inline bool adv_identifier(void)
 	{
 		while (Char::trait_table[*m_i] & Char::Trait::is_identifier)
 			m_i++;
+		return false;
 	}
 
-	using adv_t = void (Stream::*)(void);
+	inline bool adv_operator(void)
+	{
+		auto ret = [&](char res) -> bool {
+			m_i[-1] = res;
+			m_res = m_i - 2;
+			*m_res = static_cast<char>(Type::Operator);
+			return true;
+		};
+		auto t = Char::op_table[*m_i];
+		if (t & Char::is_op_direct) {
+			m_i++;
+			return ret(t & Char::op_direct_mask);
+		}
+		if (t & Char::is_op_node) {
+			auto n = t & Char::op_node_mask;
+			char cur = n;
+			auto *tb = &OpCplx::table.nodes[cur];
+			auto ret_node = [&]() -> bool {
+				if (cur == static_cast<char>(0x80)) {
+					m_res = nullptr;
+					return true;
+				}
+				return ret(cur);
+			};
+			while (true) {
+				m_i++;
+				if (*m_i == Char::eob) {
+					if (!feed_buf()) {
+						return ret_node();
+					}
+				}
+
+				auto ind = Char::op_node_table[*m_i];
+				if (ind == static_cast<char>(0x80))
+					return ret_node();
+				auto si = tb->ind[ind];
+				if (si == 0)
+					return ret_node();
+				if (si & OpCplx::has_valid_code)
+					cur = tb->res[si & OpCplx::res_ndx_mask];
+				else
+					cur = 0x80;
+				tb = reinterpret_cast<const OpCplx::Table*>(reinterpret_cast<const char*>(OpCplx::table.nodes) + (si & OpCplx::next_node_mask));
+			}
+			return true;
+		}
+		m_error = "Unknown operator";
+		return true;
+	}
+
+	using adv_t = bool (Stream::*)(void);
 	static inline constexpr adv_t adv_types[] = {
 		&Stream::adv_number_literal,
-		&Stream::adv_identifier
+		&Stream::adv_identifier,
+		&Stream::adv_operator
 	};
 
-	inline void adv_i(Type type)
+	inline bool adv_i(Type type)
 	{
-		(this->*adv_types[static_cast<char>(type)])();
+		return (this->*adv_types[static_cast<char>(type)])();
 	}
 
 	inline size_t feed_buf(void)
@@ -613,6 +687,7 @@ class Stream
 
 public:
 	char *m_i;
+	char *m_res;
 	::Stream &m_stream;
 	static inline constexpr size_t max_token_size = 255;	// uint8_t bytes
 	static inline constexpr size_t buf_size = max_token_size;
@@ -620,6 +695,7 @@ public:
 		max_token_size + buf_size +
 		1];	// eob
 	char *m_buf;
+	const char *m_error = nullptr;
 
 	inline Stream(::Stream &stream) :
 		m_stream(stream),
@@ -637,27 +713,37 @@ public:
 				return nullptr;
 			adv_wspace();
 		}
-		char *res = m_i;
-		auto type = tok_type(*res);
-		adv_i(type);
-		if (*m_i == Char::eob) {
-			if (feed_buf()) {
-				size_t size = m_i - res;
-				char *nres = m_buf - size;
-				for (size_t i = 0; i < size; i++)
-					nres[i] = res[i];
-				res = nres;
-				m_i = m_buf;
-				adv_i(type);
-				if (*m_i == Char::eob) {
-					while (true);
-					//throw "Max token size is 255";
+		m_res = m_i;
+		auto type = tok_type(*m_res);
+		if (adv_i(type)) {
+			if (m_error)
+				return nullptr;
+			return m_res;
+		} else {
+			if (*m_i == Char::eob) {
+				if (feed_buf()) {
+					size_t size = m_i - m_res;
+					char *nres = m_buf - size;
+					for (size_t i = 0; i < size; i++)
+						nres[i] = m_res[i];
+					m_res = nres;
+					m_i = m_buf;
+					adv_i(type);
+					if (*m_i == Char::eob) {
+						m_error = "Max token size is 255";
+						return nullptr;
+					}
 				}
 			}
+			m_res[-1] = m_i - m_res;
+			m_res[-2] = static_cast<char>(type);
+			return m_res - 2;
 		}
-		res[-1] = m_i - res;
-		res[-2] = static_cast<char>(type);
-		return res - 2;
+	}
+
+	inline const char* get_error(void) const
+	{
+		return m_error;
 	}
 };
 
