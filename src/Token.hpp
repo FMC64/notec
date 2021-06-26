@@ -193,9 +193,9 @@ namespace OpCplx {
 		// 0x04 flag valid code
 		// 0x01 mask res ndx for output code
 		char ind[10];	// =+-><&|*/.
-		char res[2];
+		char res[3];
 
-		char pad[4];
+		char pad[3];
 	};
 
 	static_assert(sizeof(Table) == 16, "Table size must be 16");
@@ -208,7 +208,7 @@ namespace OpCplx {
 	static inline constexpr uint8_t has_next_node = 0x08;
 	static inline constexpr uint8_t has_valid_code = 0x04;
 	static inline constexpr uint8_t next_node_mask = 0xF0;
-	static inline constexpr uint8_t res_ndx_mask = 0x01;
+	static inline constexpr uint8_t res_ndx_mask = 0x03;
 
 	static inline constexpr uint8_t empty = 0xFF;
 	static inline constexpr char gtb(uint8_t res_ndx, uint8_t node_ndx)
@@ -242,6 +242,284 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::NotEqual)	// !=
+				},
+				{}
+			},
+			{	// [1] +
+				{
+					gtb(0, empty),	// [0] =
+					gtb(1, empty),	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::PlusEqual),	// +=
+					static_cast<char>(Op::PlusPlus)	// ++
+				},
+				{}
+			},
+			{	// [2] -
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					gtb(1, empty),	// [2] -
+					gtb(2, empty),	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::MinusEqual),	// -=
+					static_cast<char>(Op::MinusMinus),	// --
+					static_cast<char>(Op::Arrow)	// ->
+				},
+				{}
+			},
+			{	// [3] &
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					gtb(1, empty),	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::BitAndEqual),	// &=
+					static_cast<char>(Op::And)	// &&
+				},
+				{}
+			},
+			{	// [4] |
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					gtb(1, empty),	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::BitOrEqual),	// |=
+					static_cast<char>(Op::Or)	// ||
+				},
+				{}
+			},
+			{	// [5] ^
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::BitXorEqual)	// ^=
+				},
+				{}
+			},
+			{	// [6] *
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::MulEqual)	// *=
+				},
+				{}
+			},
+			{	// [7] /
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					gtb(1, empty),	// [7] *
+					gtb(2, empty),	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::DivEqual),	// /=
+					static_cast<char>(Op::Comment),	// /*
+					static_cast<char>(Op::SLComment)	// //
+				},
+				{}
+			},
+			{	// [8] %
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::ModEqual)	// %=
+				},
+				{}
+			},
+			{	// [9] <
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					gtb(1, 14),	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::LessEqual),	// <=
+					static_cast<char>(Op::BitLeft)	// <<
+				},
+				{}
+			},
+			{	// [10] >
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					gtb(1, 15),	// [4] >
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::GreaterEqual),	// >=
+					static_cast<char>(Op::Greater)	// >>
+				},
+				{}
+			},
+			{	// [11] =
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] >
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::EqualEqual)	// ==
+				},
+				{}
+			},
+			{	// [12] .
+				{
+					0,	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] >
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					gtb(empty, 13)	// [9] .
+				},
+				{
+				},
+				{}
+			},
+			{	// [13] ..
+				{
+					0,	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] >
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					gtb(0, empty)	// [9] .
+				},
+				{
+					static_cast<char>(Op::Expand)	// ...
+				},
+				{}
+			},
+			{	// [14] <<
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] >
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::BitLeftEqual)	// <<=
+				},
+				{}
+			},
+			{	// [15] >>
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] >
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::BitRightEqual)	// >>=
 				},
 				{}
 			}
