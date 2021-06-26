@@ -1,6 +1,8 @@
 #include "Stream.hpp"
 
-enum class TokenType : char {
+namespace Token {
+
+enum class Type : char {
 	NumberLiteral = 0,
 	Identifier = 1,
 	Operator = 2,
@@ -8,7 +10,7 @@ enum class TokenType : char {
 	ValueChar8 = 4
 };
 
-class Tokenizer
+class Stream
 {
 	static inline bool is_whitespace(char c)
 	{
@@ -37,18 +39,18 @@ class Tokenizer
 
 	static inline constexpr char eob = 0x7F;
 
-	inline TokenType tok_type(char c)
+	inline Type tok_type(char c)
 	{
-		if (is_digit(c))
-			return TokenType::NumberLiteral;
+		if (is_digit(c) || c == '.')
+			return Type::NumberLiteral;
 		else if (is_alpha(c) || c == '_')
-			return TokenType::Identifier;
+			return Type::Identifier;
 		else if (c == '\"')
-			return TokenType::StringLiteral;
+			return Type::StringLiteral;
 		else if (c == '\'')
-			return TokenType::ValueChar8;
+			return Type::ValueChar8;
 		else
-			return TokenType::Operator;
+			return Type::Operator;
 	}
 
 	inline void adv_wspace(void)
@@ -57,12 +59,12 @@ class Tokenizer
 			m_i++;
 	}
 
-	inline void adv_i(TokenType type)
+	inline void adv_i(Type type)
 	{
-		if (type == TokenType::NumberLiteral) {
+		if (type == Type::NumberLiteral) {
 			while (is_num_lit(*m_i))
 				m_i++;
-		} else if (type == TokenType::Identifier) {
+		} else if (type == Type::Identifier) {
 			while (is_identifier(*m_i))
 				m_i++;
 		}
@@ -77,7 +79,7 @@ class Tokenizer
 
 public:
 	char *m_i;
-	Stream &m_stream;
+	::Stream &m_stream;
 	static inline constexpr size_t max_token_size = 255;	// uint8_t bytes
 	static inline constexpr size_t buf_size = max_token_size;
 	char m_buf_raw[2 +	// token struct type + size
@@ -85,7 +87,7 @@ public:
 		1];	// eob
 	char *m_buf;
 
-	inline Tokenizer(Stream &stream) :
+	inline Stream(::Stream &stream) :
 		m_stream(stream),
 		m_buf(m_buf_raw + 2 + max_token_size)
 	{
@@ -102,7 +104,7 @@ public:
 			adv_wspace();
 		}
 		char *res = m_i;
-		TokenType type = tok_type(*res);
+		auto type = tok_type(*res);
 		adv_i(type);
 		if (*m_i == eob) {
 			if (feed_buf()) {
@@ -124,3 +126,5 @@ public:
 		return res - 2;
 	}
 };
+
+}
