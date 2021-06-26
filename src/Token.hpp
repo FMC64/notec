@@ -10,6 +10,70 @@ enum class Type : char {
 	ValueChar8 = 4
 };
 
+enum class Op : char {
+	Not = 0,	// !
+	Plus = 1,	// +
+	Minus = 2,	// -
+	BitAnd = 3,	// &
+	BitOr = 4,	// |
+	BitXor = 5,	// ^
+	Mul = 6,	// *
+	Div = 7,	// /
+	Mod = 8,	// %
+	Less = 9,	// <
+	Greater = 10,	// >
+	Equal = 11,	// =
+	Point = 12,	// .
+
+	NotEqual = 13,	// !=
+
+	PlusPlus = 14,	// ++
+	PlusEqual = 15,	// +=
+
+	MinusMinus = 16,	// --
+	MinusEqual = 17,	// -=
+	Arrow = 18,	// ->
+
+	And = 19,	// &
+	BitAndEqual = 20,	// &=
+
+	Or = 21,	// |
+	BitOrEqual = 22,	// |=
+
+	BitXorEqual = 23,	// ^=
+
+	MulEqual = 24,	// *=
+
+	DivEqual = 25,	// /=
+	Comment = 26,	// /*
+	SLComment = 27,	// //
+
+	ModEqual = 28,	// %=
+
+	LessEqual = 29,	// <=
+	BitLeft = 30,	// <<
+	BitLeftEqual = 31,	// <<=
+
+	GreaterEqual = 32,	// >=
+	BitRight = 33,	// >>
+	BitRightEqual = 34,	// >>=
+
+	EqualEqual = 35,	// ==
+	Expand = 36,	// ...
+
+	LPar = 37,	// (
+	RPar = 38,	// )
+	LArr = 39,	// [
+	RArr = 40,	// ]
+	Tilde = 41,	// ~
+	Comma = 42,	// ,
+	Huh = 43,	// ?
+	Colon = 44,	// :
+	Semicolon = 45,	// ;
+	LBra = 46,	// {
+	RBra = 47	// }
+};
+
 namespace Char {
 	static inline constexpr bool is_whitespace(char c)
 	{
@@ -119,71 +183,47 @@ namespace Char {
 		return res;
 	}
 	static inline constexpr STable type_table = computeTypeTable();
+
+	static inline constexpr uint8_t is_op_direct = 0x80;
+	static inline constexpr uint8_t is_op_node = 0x40;
+	static inline constexpr uint8_t op_direct_mask = 0x3F;
+	static inline constexpr uint8_t op_node_mask = 0x0F;
+	static inline constexpr STable computeOpTable(void)
+	{
+		STable res;
+		for (uint8_t i = 0; i < res.csize; i++)
+			res[i] = 0;
+
+		// That's a nice cube right
+		res['('] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::LPar));
+		res[')'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::RPar));
+		res['['] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::LArr));
+		res[']'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::RArr));
+		res['~'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Tilde));
+		res['?'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Huh));
+		res[':'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Colon));
+		res[';'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Semicolon));
+		res['{'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::LBra));
+		res['}'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::RBra));
+
+		res['!'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Not));
+		res['+'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Plus));
+		res['-'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Minus));
+		res['&'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::BitAnd));
+		res['|'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::BitOr));
+		res['^'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::BitXor));
+		res['*'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Mul));
+		res['/'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Div));
+		res['%'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Mod));
+		res['<'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Less));
+		res['>'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Greater));
+		res['='] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Equal));
+		res['.'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Point));
+
+		return res;
+	}
+	static inline constexpr STable op_table = computeOpTable();
 }
-
-enum class Op : char {
-	Not = 0,	// !
-	Plus = 1,	// +
-	Minus = 2,	// -
-	BitAnd = 3,	// &
-	BitOr = 4,	// |
-	BitXor = 5,	// ^
-	Mul = 6,	// *
-	Div = 7,	// /
-	Mod = 8,	// %
-	Less = 9,	// <
-	Greater = 10,	// >
-	Equal = 11,	// =
-	Point = 12,	// .
-
-	NotEqual = 13,	// !=
-
-	PlusPlus = 14,	// ++
-	PlusEqual = 15,	// +=
-
-	MinusMinus = 16,	// --
-	MinusEqual = 17,	// -=
-	Arrow = 18,	// ->
-
-	And = 19,	// &
-	BitAndEqual = 20,	// &=
-
-	Or = 21,	// |
-	BitOrEqual = 22,	// |=
-
-	BitXorEqual = 23,	// ^=
-
-	MulEqual = 24,	// *=
-
-	DivEqual = 25,	// /=
-	Comment = 26,	// /*
-	SLComment = 27,	// //
-
-	ModEqual = 28,	// %=
-
-	LessEqual = 29,	// <=
-	BitLeft = 30,	// <<
-	BitLeftEqual = 31,	// <<=
-
-	GreaterEqual = 32,	// >=
-	BitRight = 33,	// >>
-	BitRightEqual = 34,	// >>=
-
-	EqualEqual = 35,	// ==
-	Expand = 36,	// ...
-
-	LPar = 37,	// (
-	RPar = 38,	// )
-	LArr = 39,	// [
-	RArr = 40,	// ]
-	Tilde = 41,	// ~
-	Comma = 42,	// ,
-	Huh = 43,	// ?
-	Colon = 44,	// :
-	Semicolon = 45,	// ;
-	LBra = 46,	// {
-	RBra = 47	// }
-};
 
 namespace OpCplx {
 	struct Table
