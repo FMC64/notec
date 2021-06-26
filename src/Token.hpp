@@ -97,23 +97,35 @@ namespace Char {
 		return res;
 	}
 	static inline constexpr STable trait_table = computeTraitTable();
+
+	static inline constexpr STable computeTypeTable(void)
+	{
+		constexpr auto type_for_char = [](char c) -> Token::Type {
+			auto t = Char::trait_table[c];
+			if (t & Char::Trait::is_digit_first)
+				return Token::Type::NumberLiteral;
+			else if (t & Char::Trait::is_identifier_first)
+				return Token::Type::Identifier;
+			else if (c == '\"')
+				return Token::Type::StringLiteral;
+			else if (c == '\'')
+				return Token::Type::ValueChar8;
+			else
+				return Token::Type::Operator;
+		};
+		STable res;
+		for (uint8_t i = 0; i < res.csize; i++)
+			res[i] = static_cast<char>(type_for_char(static_cast<char>(i)));
+		return res;
+	}
+	static inline constexpr STable type_table = computeTypeTable();
 }
 
 class Stream
 {
 	inline Type tok_type(char c)
 	{
-		auto t = Char::trait_table[c];
-		if (t & Char::Trait::is_digit_first)
-			return Type::NumberLiteral;
-		else if (t & Char::Trait::is_identifier_first)
-			return Type::Identifier;
-		else if (c == '\"')
-			return Type::StringLiteral;
-		else if (c == '\'')
-			return Type::ValueChar8;
-		else
-			return Type::Operator;
+		return static_cast<Type>(Char::type_table[c]);
 	}
 
 	inline void adv_wspace(void)
@@ -122,15 +134,27 @@ class Stream
 			m_i++;
 	}
 
+	inline void adv_number_literal(void)
+	{
+		while (Char::trait_table[*m_i] & Char::Trait::is_num_lit)
+			m_i++;
+	}
+
+	inline void adv_identifier(void)
+	{
+		while (Char::trait_table[*m_i] & Char::Trait::is_identifier)
+			m_i++;
+	}
+
+	using adv_t = void (Stream::*)(void);
+	static inline constexpr adv_t adv_types[] = {
+		&Stream::adv_number_literal,
+		&Stream::adv_identifier
+	};
+
 	inline void adv_i(Type type)
 	{
-		if (type == Type::Identifier) {
-			while (Char::trait_table[*m_i] & Char::Trait::is_identifier)
-				m_i++;
-		} else if (type == Type::NumberLiteral) {
-			while (Char::trait_table[*m_i] & Char::Trait::is_num_lit)
-				m_i++;
-		}
+		(this->*adv_types[static_cast<char>(type)])();
 	}
 
 	inline size_t feed_buf(void)
