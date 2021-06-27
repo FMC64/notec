@@ -16,22 +16,21 @@ enum class Op : char {
 	Minus = 2,	// -
 	BitAnd = 3,	// &
 	BitOr = 4,	// |
-	BitXor = 5,	// ^
 	Mul = 6,	// *
 	Div = 7,	// /
-	Mod = 8,	// %
+	Colon = 8,	// :
 	Less = 9,	// <
 	Greater = 10,	// >
 	Equal = 11,	// =
 	Point = 12,	// .
+	BitXor = 16,	// ^
+	Mod = 17,	// %
 
 	NotEqual = 13,	// !=
 
 	PlusPlus = 14,	// ++
 	PlusEqual = 15,	// +=
 
-	MinusMinus = 16,	// --
-	MinusEqual = 17,	// -=
 	Arrow = 18,	// ->
 
 	And = 19,	// &
@@ -68,10 +67,15 @@ enum class Op : char {
 	Tilde = 41,	// ~
 	Comma = 42,	// ,
 	Huh = 43,	// ?
-	Colon = 44,	// :
 	Semicolon = 45,	// ;
 	LBra = 46,	// {
-	RBra = 47	// }
+	RBra = 47,	// }
+
+	TWComp = 48,	// <=>
+	Scope = 49,	// ::
+
+	MinusMinus = 50,	// --
+	MinusEqual = 51	// -=
 };
 
 namespace Char {
@@ -201,7 +205,6 @@ namespace Char {
 		res[']'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::RArr));
 		res['~'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Tilde));
 		res['?'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Huh));
-		res[':'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Colon));
 		res[';'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Semicolon));
 		res['{'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::LBra));
 		res['}'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::RBra));
@@ -219,6 +222,7 @@ namespace Char {
 		res['>'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Greater));
 		res['='] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Equal));
 		res['.'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Point));
+		res[':'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Colon));
 
 		return res;
 	}
@@ -240,6 +244,7 @@ namespace Char {
 		res['*'] = 7;
 		res['/'] = 8;
 		res['.'] = 9;
+		res[':'] = 10;
 
 		return res;
 	}
@@ -253,17 +258,17 @@ namespace OpCplx {
 		// 0x08 flag has next node
 		// 0x04 flag valid code
 		// 0x01 mask res ndx for output code
-		char ind[10];	// =+-><&|*/.
+		char ind[11];	// =+-><&|*/.:
 		char res[3];
 
-		char pad[3];
+		char pad[2];
 	};
 
 	static_assert(sizeof(Table) == 16, "Table size must be 16");
 
 	struct GTable
 	{
-		Table nodes[16];
+		Table nodes[18];
 	};
 
 	static inline constexpr uint8_t has_next_node = 0x08;
@@ -383,12 +388,12 @@ namespace OpCplx {
 				},
 				{}
 			},
-			{	// [5] ^
+			{	// [5] <=
 				{
-					gtb(0, empty),	// [0] =
+					0,	// [0] =
 					0,	// [1] +
 					0,	// [2] -
-					0,	// [3] >
+					gtb(0, empty),	// [3] >
 					0,	// [4] <
 					0,	// [5] &
 					0,	// [6] |
@@ -397,7 +402,7 @@ namespace OpCplx {
 					0	// [9] .
 				},
 				{
-					static_cast<char>(Op::BitXorEqual)	// ^=
+					static_cast<char>(Op::TWComp)	// <=>
 				},
 				{}
 			},
@@ -439,9 +444,9 @@ namespace OpCplx {
 				},
 				{}
 			},
-			{	// [8] %
+			{	// [8] :
 				{
-					gtb(0, empty),	// [0] =
+					0,	// [0] =
 					0,	// [1] +
 					0,	// [2] -
 					0,	// [3] >
@@ -450,16 +455,17 @@ namespace OpCplx {
 					0,	// [6] |
 					0,	// [7] *
 					0,	// [8] /
-					0	// [9] .
+					0,	// [9] .
+					gtb(0, empty)	// [A] :
 				},
 				{
-					static_cast<char>(Op::ModEqual)	// %=
+					static_cast<char>(Op::Scope)	// ::
 				},
 				{}
 			},
 			{	// [9] <
 				{
-					gtb(0, empty),	// [0] =
+					gtb(0, 5),	// [0] =
 					0,	// [1] +
 					0,	// [2] -
 					0,	// [3] >
@@ -581,6 +587,42 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::BitRightEqual)	// >>=
+				},
+				{}
+			},
+			{	// [16] ^
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::BitXorEqual)	// ^=
+				},
+				{}
+			},
+			{	// [17] %
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::ModEqual)	// %=
 				},
 				{}
 			}

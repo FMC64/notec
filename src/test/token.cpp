@@ -98,3 +98,24 @@ test_case(token_7)
 	while (toks.next());
 	test_assert(toks.get_row() == 3);
 }
+
+test_case(token_8)
+{
+	StrStream s("(0 ? a::b : c::d) <=a<=>");
+	Token::Stream toks(s);
+	next_assert_op(toks, Type::Operator, Op::LPar);
+	next_assert(toks, Type::NumberLiteral, "0");
+	next_assert_op(toks, Type::Operator, Op::Huh);
+	next_assert(toks, Type::Identifier, "a");
+	next_assert_op(toks, Type::Operator, Op::Scope);
+	next_assert(toks, Type::Identifier, "b");
+	next_assert_op(toks, Type::Operator, Op::Colon);
+	next_assert(toks, Type::Identifier, "c");
+	next_assert_op(toks, Type::Operator, Op::Scope);
+	next_assert(toks, Type::Identifier, "d");
+	next_assert_op(toks, Type::Operator, Op::RPar);
+	next_assert_op(toks, Type::Operator, Op::LessEqual);
+	next_assert(toks, Type::Identifier, "a");
+	next_assert_op(toks, Type::Operator, Op::TWComp);
+	test_assert(toks.next() == nullptr);
+}
