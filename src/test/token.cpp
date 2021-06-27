@@ -89,3 +89,12 @@ test_case(token_6)
 	next_assert_op(toks, Type::Operator, Op::Point);
 	test_assert(toks.next() == nullptr);
 }
+
+test_case(token_7)
+{
+	StrStream s(". . .\n\na");
+	Token::Stream toks(s);
+	test_assert(toks.get_off() == 0);
+	while (toks.next());
+	test_assert(toks.get_row() == 3);
+}

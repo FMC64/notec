@@ -598,8 +598,11 @@ class Stream
 
 	inline void adv_wspace(void)
 	{
-		while (Char::is_whitespace(*m_i))
+		while (Char::is_whitespace(*m_i)) {
+			if (*m_i == '\n')
+				m_row++;
 			m_i++;
+		}
 	}
 
 	inline bool adv_number_literal(void)
@@ -664,6 +667,7 @@ class Stream
 			auto ret_node = [&]() -> bool {
 				if (cur == static_cast<char>(0x80)) {
 					m_res = nullptr;
+					m_error = "Unknown operator";
 					return true;
 				}
 				return ret(cur);
@@ -716,6 +720,7 @@ class Stream
 	{
 		auto r = m_stream.read(m_buf, buf_size);
 		m_buf[r] = Char::eob;
+		m_off += r;
 		return r;
 	}
 
@@ -729,7 +734,10 @@ public:
 		max_token_size + buf_size +
 		1];	// eob
 	char *m_buf;
+
 	const char *m_error = nullptr;
+	size_t m_off = 0;	// bytes read on the file so far, any error will be happening before that offset
+	size_t m_row = 0;
 
 	inline Stream(::Stream &stream) :
 		m_stream(stream),
@@ -773,6 +781,19 @@ public:
 	inline const char* get_error(void) const
 	{
 		return m_error;
+	}
+
+	inline size_t get_off(void) const	// current byte offset in file, expensive (call only on error/warning)
+	{
+		auto end = m_i;
+		while (*end != Char::eob)
+			end++;
+		return m_off - (end - m_i);
+	}
+
+	inline size_t get_row(void) const	// human-readable row, to use only for prompt
+	{
+		return m_row + 1;
 	}
 };
 
