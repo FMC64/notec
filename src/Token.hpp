@@ -17,7 +17,6 @@ enum class Op : char {
 	BitAnd = 3,	// &
 	BitOr = 4,	// |
 	Mul = 6,	// *
-	Div = 7,	// /
 	Colon = 8,	// :
 	Less = 9,	// <
 	Greater = 10,	// >
@@ -25,13 +24,12 @@ enum class Op : char {
 	Point = 12,	// .
 	BitXor = 16,	// ^
 	Mod = 17,	// %
+	Div = 18,	// /
 
 	NotEqual = 13,	// !=
 
 	PlusPlus = 14,	// ++
 	PlusEqual = 15,	// +=
-
-	Arrow = 18,	// ->
 
 	And = 19,	// &
 	BitAndEqual = 20,	// &=
@@ -75,7 +73,12 @@ enum class Op : char {
 	Scope = 49,	// ::
 
 	MinusMinus = 50,	// --
-	MinusEqual = 51	// -=
+	MinusEqual = 51,	// -=
+
+	PointMember = 52,	// .*
+	ArrowMember = 53,	// ->*
+
+	Arrow = 54	// ->
 };
 
 namespace Char {
@@ -268,7 +271,7 @@ namespace OpCplx {
 
 	struct GTable
 	{
-		Table nodes[18];
+		Table nodes[19];
 	};
 
 	static inline constexpr uint8_t has_next_node = 0x08;
@@ -424,23 +427,21 @@ namespace OpCplx {
 				},
 				{}
 			},
-			{	// [7] /
+			{	// [7] ->
 				{
-					gtb(0, empty),	// [0] =
+					0,	// [0] =
 					0,	// [1] +
 					0,	// [2] -
 					0,	// [3] >
 					0,	// [4] <
 					0,	// [5] &
 					0,	// [6] |
-					gtb(1, empty),	// [7] *
-					gtb(2, empty),	// [8] /
+					gtb(0, empty),	// [7] *
+					0,	// [8] /
 					0	// [9] .
 				},
 				{
-					static_cast<char>(Op::DivEqual),	// /=
-					static_cast<char>(Op::Comment),	// /*
-					static_cast<char>(Op::SLComment)	// //
+					static_cast<char>(Op::ArrowMember)	// ->*
 				},
 				{}
 			},
@@ -528,11 +529,12 @@ namespace OpCplx {
 					0,	// [4] >
 					0,	// [5] &
 					0,	// [6] |
-					0,	// [7] *
+					gtb(0, empty),	// [7] *
 					0,	// [8] /
 					gtb(empty, 13)	// [9] .
 				},
 				{
+					static_cast<char>(Op::PointMember)	// .*
 				},
 				{}
 			},
@@ -625,7 +627,27 @@ namespace OpCplx {
 					static_cast<char>(Op::ModEqual)	// %=
 				},
 				{}
-			}
+			},
+			{	// [18] /
+				{
+					gtb(0, empty),	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					gtb(1, empty),	// [7] *
+					gtb(2, empty),	// [8] /
+					0	// [9] .
+				},
+				{
+					static_cast<char>(Op::DivEqual),	// /=
+					static_cast<char>(Op::Comment),	// /*
+					static_cast<char>(Op::SLComment)	// //
+				},
+				{}
+			},
 		}};
 	}
 	static inline constexpr GTable table = getTable();
