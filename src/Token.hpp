@@ -762,12 +762,25 @@ class Stream
 		return true;
 	}
 
+	inline bool adv_string_literal(void)
+	{
+		m_res = m_i - 1;
+		m_i++;
+		auto base = m_i;
+		while (*m_i != '\"')
+			m_i++;
+		m_res[0] = static_cast<char>(Type::StringLiteral);
+		m_res[1] = m_i - base;
+		m_i++;
+		return true;
+	}
+
 	using adv_t = bool (Stream::*)(void);
 	static inline constexpr adv_t adv_types[] = {
 		&Stream::adv_number_literal,	// 0
 		&Stream::adv_identifier,	// 1
 		&Stream::adv_operator,		// 2
-		nullptr,	// 3
+		&Stream::adv_string_literal,	// 3
 		nullptr,	// 4
 		nullptr,	// 5
 		nullptr,	// 6

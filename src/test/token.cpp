@@ -119,3 +119,11 @@ test_case(token_8)
 	next_assert_op(toks, Type::Operator, Op::TWComp);
 	test_assert(toks.next() == nullptr);
 }
+
+test_case(token_9)
+{
+	StrStream s("\"abc\"  ");
+	Token::Stream toks(s);
+	next_assert(toks, Type::StringLiteral, "abc");
+	test_assert(toks.next() == nullptr);
+}
