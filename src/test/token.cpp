@@ -162,3 +162,11 @@ test_case(token_12)
 	next_assert(toks, Type::Identifier, "efg");
 	test_assert(toks.next() == nullptr);
 }
+
+test_case(token_13)	// make sure PP is disabled for now
+{
+	StrStream s("#define test\nefg  ");
+	Token::Stream toks(s);
+	next_assert(toks, Type::Identifier, "efg");
+	test_assert(toks.next() == nullptr);
+}

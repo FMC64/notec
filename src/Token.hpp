@@ -797,6 +797,10 @@ class Stream
 			}
 			return true;
 		}
+		if (*m_i == '#') {
+			m_i++;
+			return adv_sl_comment();
+		}
 		m_error = "Unknown operator";
 		return true;
 	}
