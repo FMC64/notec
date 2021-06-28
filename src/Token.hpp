@@ -209,6 +209,7 @@ namespace Char {
 		res['~'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Tilde));
 		res['?'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Huh));
 		res[';'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Semicolon));
+		res[','] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::Comma));
 		res['{'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::LBra));
 		res['}'] = static_cast<char>(is_op_direct | static_cast<uint8_t>(Op::RBra));
 
