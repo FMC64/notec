@@ -691,9 +691,8 @@ class Stream
 		char had = *m_i;
 		m_i++;
 		if (*m_i == Char::eob) {
-			if (feed_buf()) {
-				carriage_buf();
-			}
+			carriage_buf();
+			feed_buf();
 		}
 		if (Char::trait_table[*m_i] & Char::Trait::is_digit)
 			return adv_number_literal();
@@ -738,11 +737,9 @@ class Stream
 			};
 			while (true) {
 				m_i++;
-				if (*m_i == Char::eob) {
-					if (!feed_buf()) {
+				if (*m_i == Char::eob)
+					if (!feed_buf())
 						return ret_node();
-					}
-				}
 
 				auto ind = Char::op_node_table[*m_i];
 				if (ind == static_cast<char>(0x80))
@@ -764,13 +761,26 @@ class Stream
 
 	inline bool adv_string_literal(void)
 	{
-		m_res = m_i - 1;
 		m_i++;
-		auto base = m_i;
-		while (*m_i != '\"')
+		m_res = m_i;
+		while (*m_i != '\"') {
+			if (*m_i == Char::eob) {
+				carriage_buf();
+				feed_buf();
+				while (*m_i != '\"') {
+					m_i++;
+				}
+				if (*m_i == Char::eob) {
+					m_error = "Max string size is 255";
+					m_res = nullptr;
+					return true;
+				}
+			}
 			m_i++;
-		m_res[0] = static_cast<char>(Type::StringLiteral);
-		m_res[1] = m_i - base;
+		}
+		m_res[-1] = m_i - m_res;
+		m_res[-2] = static_cast<char>(Type::StringLiteral);
+		m_res -= 2;
 		m_i++;
 		return true;
 	}
@@ -840,13 +850,12 @@ public:
 			return m_res;
 		} else {
 			if (*m_i == Char::eob) {
-				if (feed_buf()) {
-					carriage_buf();
-					adv_i(type);
-					if (*m_i == Char::eob) {
-						m_error = "Max token size is 255";
-						return nullptr;
-					}
+				carriage_buf();
+				feed_buf();
+				adv_i(type);
+				if (*m_i == Char::eob) {
+					m_error = "Max token size is 255";
+					return nullptr;
 				}
 			}
 			m_res[-1] = m_i - m_res;
