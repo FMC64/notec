@@ -144,3 +144,12 @@ test_case(token_10)
 	next_assert_char(toks, Type::ValueChar8, 'g');
 	test_assert(toks.next() == nullptr);
 }
+
+test_case(token_11)
+{
+	StrStream s("a	// bcd   \nefg  ");
+	Token::Stream toks(s);
+	next_assert(toks, Type::Identifier, "a");
+	next_assert(toks, Type::Identifier, "efg");
+	test_assert(toks.next() == nullptr);
+}

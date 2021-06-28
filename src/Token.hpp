@@ -194,7 +194,7 @@ namespace Char {
 	static inline constexpr uint8_t is_op_direct = 0x80;
 	static inline constexpr uint8_t is_op_node = 0x40;
 	static inline constexpr uint8_t op_direct_mask = 0x3F;
-	static inline constexpr uint8_t op_node_mask = 0x0F;
+	static inline constexpr uint8_t op_node_mask = 0x3F;
 	static inline constexpr STable computeOpTable(void)
 	{
 		STable res;
@@ -710,9 +710,28 @@ class Stream
 		return false;
 	}
 
+	inline bool adv_comment(void)
+	{
+		while (true) {
+			if (*m_i == Char::eob)
+				if (!feed_buf()) {
+					m_res = nullptr;
+					return true;
+				}
+			if (*m_i == '\n') {
+				m_row++;
+				m_res = next();
+				return true;
+			}
+			m_i++;
+		}
+	}
+
 	inline bool adv_operator(void)
 	{
 		auto ret = [&](char res) -> bool {
+			if (static_cast<Op>(res) == Op::SLComment)
+				return adv_comment();
 			m_i[-1] = res;
 			m_res = m_i - 2;
 			*m_res = static_cast<char>(Type::Operator);
