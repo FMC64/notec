@@ -759,15 +759,15 @@ class Stream
 		return true;
 	}
 
-	inline bool adv_string_literal(void)
+	inline bool adv_str(char delim, Type type)
 	{
 		m_i++;
 		m_res = m_i;
-		while (*m_i != '\"') {
+		while (*m_i != delim) {
 			if (*m_i == Char::eob) {
 				carriage_buf();
 				feed_buf();
-				while (*m_i != '\"') {
+				while (*m_i != delim) {
 					m_i++;
 				}
 				if (*m_i == Char::eob) {
@@ -779,9 +779,25 @@ class Stream
 			m_i++;
 		}
 		m_res[-1] = m_i - m_res;
-		m_res[-2] = static_cast<char>(Type::StringLiteral);
+		m_res[-2] = static_cast<char>(type);
 		m_res -= 2;
 		m_i++;
+		return true;
+	}
+
+	inline bool adv_string_literal(void)
+	{
+		return adv_str('\"', Type::StringLiteral);
+	}
+
+	inline bool adv_value_char_8(void)
+	{
+		adv_str('\'', Type::ValueChar8);
+		if (m_res[1] != 1) {
+			m_error = "Expected one character";
+			m_res = nullptr;
+		}
+		m_res[1] = m_res[2];
 		return true;
 	}
 
@@ -791,7 +807,7 @@ class Stream
 		&Stream::adv_identifier,	// 1
 		&Stream::adv_operator,		// 2
 		&Stream::adv_string_literal,	// 3
-		nullptr,	// 4
+		&Stream::adv_value_char_8,	// 4
 		nullptr,	// 5
 		nullptr,	// 6
 		nullptr,	// 7

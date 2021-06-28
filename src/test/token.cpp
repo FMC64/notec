@@ -24,6 +24,15 @@ static void next_assert_op(Token::Stream &toks, Type exp_type, Op exp)
 	test_assert(static_cast<Op>(n[1]) == exp);
 }
 
+static void next_assert_char(Token::Stream &toks, Type exp_type, char exp)
+{
+	auto n = toks.next();
+	if (n == nullptr)
+		throw "Expected token, got nothing";
+	test_assert(static_cast<Type>(n[0]) == exp_type);
+	test_assert(n[1] == exp);
+}
+
 test_case(token_0)
 {
 	StrStream s("a b\tc\n");
@@ -125,5 +134,13 @@ test_case(token_9)
 	StrStream s("\"abc\"  ");
 	Token::Stream toks(s);
 	next_assert(toks, Type::StringLiteral, "abc");
+	test_assert(toks.next() == nullptr);
+}
+
+test_case(token_10)
+{
+	StrStream s("\'g\'  ");
+	Token::Stream toks(s);
+	next_assert_char(toks, Type::ValueChar8, 'g');
 	test_assert(toks.next() == nullptr);
 }
