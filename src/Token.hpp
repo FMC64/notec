@@ -712,6 +712,27 @@ class Stream
 
 	inline bool adv_comment(void)
 	{
+		char last_char = 0;
+		while (true) {
+			if (*m_i == Char::eob)
+				if (!feed_buf()) {
+					m_res = nullptr;
+					return true;
+				}
+			if (*m_i == '\n')
+				m_row++;
+			if (last_char == '*' && *m_i == '/') {
+				m_i++;
+				m_res = next();
+				return true;
+			}
+			last_char = *m_i;
+			m_i++;
+		}
+	}
+
+	inline bool adv_sl_comment(void)
+	{
 		while (true) {
 			if (*m_i == Char::eob)
 				if (!feed_buf()) {
@@ -730,8 +751,10 @@ class Stream
 	inline bool adv_operator(void)
 	{
 		auto ret = [&](char res) -> bool {
-			if (static_cast<Op>(res) == Op::SLComment)
+			if (static_cast<Op>(res) == Op::Comment)
 				return adv_comment();
+			if (static_cast<Op>(res) == Op::SLComment)
+				return adv_sl_comment();
 			m_i[-1] = res;
 			m_res = m_i - 2;
 			*m_res = static_cast<char>(Type::Operator);
