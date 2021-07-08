@@ -1,6 +1,7 @@
 #include "test.hpp"
 #include "StrStream.hpp"
 
+#include <string>
 #include <vector>
 
 template <size_t BufSize>
