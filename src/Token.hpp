@@ -772,7 +772,6 @@ class Stream
 			auto *tb = &OpCplx::table.nodes[cur];
 			auto ret_node = [&]() -> bool {
 				if (cur == static_cast<char>(0x80)) {
-					m_res = nullptr;
 					m_error = "Unknown operator";
 					return true;
 				}
@@ -817,7 +816,6 @@ class Stream
 				while (*m_i != delim) {
 					if (*m_i == Char::eob) {
 						m_error = "Max string size is 255";
-						m_res = nullptr;
 						return true;
 					}
 					m_i++;
@@ -840,11 +838,11 @@ class Stream
 	inline bool adv_value_char_8(void)
 	{
 		adv_str('\'', Type::ValueChar8);
-		if (m_res == nullptr)
+		if (m_error)
 			return true;
 		if (m_res[1] != 1) {
 			m_error = "Expected one character";
-			m_res = nullptr;
+			return true;
 		}
 		m_res[1] = m_res[2];
 		return true;
@@ -918,7 +916,9 @@ public:
 			if (*m_i == Char::eob) {
 				carriage_buf();
 				feed_buf();
-				adv_i(type);
+				if (adv_i(type))
+					if (m_error)
+						return nullptr;
 				if (*m_i == Char::eob) {
 					m_error = "Max token size is 255";
 					return nullptr;
