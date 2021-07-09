@@ -815,12 +815,12 @@ class Stream
 				carriage_buf();
 				feed_buf();
 				while (*m_i != delim) {
+					if (*m_i == Char::eob) {
+						m_error = "Max string size is 255";
+						m_res = nullptr;
+						return true;
+					}
 					m_i++;
-				}
-				if (*m_i == Char::eob) {
-					m_error = "Max string size is 255";
-					m_res = nullptr;
-					return true;
 				}
 			}
 			m_i++;
@@ -839,7 +839,8 @@ class Stream
 
 	inline bool adv_value_char_8(void)
 	{
-		adv_str('\'', Type::ValueChar8);
+		if (adv_str('\'', Type::ValueChar8))
+			return true;
 		if (m_res[1] != 1) {
 			m_error = "Expected one character";
 			m_res = nullptr;
@@ -903,6 +904,7 @@ public:
 		while (*m_i == Char::eob) {
 			if (!feed_buf())
 				return nullptr;
+			m_i = m_buf;
 			adv_wspace();
 		}
 		m_res = m_i;
