@@ -8,13 +8,15 @@ OUT_G1A = $(OUT).g1a
 COMMON_SRC = 
 OUT_SRC = $(wildcard src/crs/*.cpp)
 TEST_SRC = $(wildcard src/test/*.cpp)
+TEST_STL_SRC = $(wildcard src/test/stl/*.cpp)
 
 COMMON_OBJ = $(COMMON_SRC:.cpp=.o)
 OUT_OBJ = $(OUT_SRC:.cpp=.o)
 TEST_OBJ = $(TEST_SRC:.cpp=.o)
+TEST_STL_OBJ = $(TEST_STL_SRC:.cpp=.o)
 
 OUT_ALL_OBJ = $(COMMON_OBJ) $(OUT_OBJ)
-TEST_ALL_OBJ = $(COMMON_OBJ) $(TEST_OBJ)
+TEST_ALL_OBJ = $(COMMON_OBJ) $(TEST_OBJ) $(TEST_STL_OBJ)
 
 TEST_OUT = test.exe
 
@@ -40,7 +42,7 @@ $(OUT_BIN): $(OUT_ELF)
 $(OUT_G1A): $(OUT_BIN)
 	g1a-wrapper $(OUT_BIN) -o $(OUT_G1A) -i ./lnk/icon.bmp
 
-$(TEST_OBJ): CXXFLAGS_EXTRA = -D CINT_HOST
+$(TEST_OBJ) $(TEST_STL_OBJ): CXXFLAGS_EXTRA = -D CINT_HOST -I src/test
 $(TEST_OUT): $(TEST_ALL_OBJ)
 	$(CXX) $(CXXFLAGS) $(TEST_ALL_OBJ) -o $(TEST_OUT)
 
@@ -48,5 +50,8 @@ test: $(TEST_OUT)
 
 clean:
 	rm -f $(COMMON_OBJ) $(OUT_OBJ) $(TEST_OBJ) $(OUT_ELF) $(OUT_BIN) $(OUT_G1A) $(TEST_OUT)
+
+clean_all: clean
+	rm -f $(TEST_STL_OBJ)
 
 .PHONY: all clean check_sh_elf_cxx
