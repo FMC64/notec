@@ -839,7 +839,8 @@ class Stream
 
 	inline bool adv_value_char_8(void)
 	{
-		if (adv_str('\'', Type::ValueChar8))
+		adv_str('\'', Type::ValueChar8);
+		if (m_res == nullptr)
 			return true;
 		if (m_res[1] != 1) {
 			m_error = "Expected one character";
