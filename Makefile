@@ -7,8 +7,8 @@ OUT_G1A = $(OUT).g1a
 
 COMMON_SRC = 
 OUT_SRC = $(wildcard src/crs/*.cpp)
-TEST_SRC = $(wildcard src/test/*.cpp)
-TEST_STL_SRC = $(wildcard src/test/stl/*.cpp)
+TEST_SRC = $(wildcard test/*.cpp)
+TEST_STL_SRC = $(wildcard test/stl/*.cpp)
 
 COMMON_OBJ = $(COMMON_SRC:.cpp=.o)
 OUT_OBJ = $(OUT_SRC:.cpp=.o)
@@ -42,7 +42,7 @@ $(OUT_BIN): $(OUT_ELF)
 $(OUT_G1A): $(OUT_BIN)
 	g1a-wrapper $(OUT_BIN) -o $(OUT_G1A) -i ./lnk/icon.bmp
 
-$(TEST_OBJ) $(TEST_STL_OBJ): CXXFLAGS_EXTRA = -D CINT_HOST -I src/test
+$(TEST_OBJ) $(TEST_STL_OBJ): CXXFLAGS_EXTRA = -D CINT_HOST -I test
 $(TEST_OUT): $(TEST_ALL_OBJ)
 	$(CXX) $(CXXFLAGS) $(TEST_ALL_OBJ) -o $(TEST_OUT)
 
