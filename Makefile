@@ -1,4 +1,9 @@
-CXXFLAGS = -std=c++20 -Wall -Wextra -O3 -Wno-char-subscripts $(CXXFLAGS_EXTRA) -I src
+CXXFLAGS = -std=c++20 -Wall -Wextra -Wno-char-subscripts $(CXXFLAGS_EXTRA) -I src
+#SANITIZE = true
+
+ifdef SANITIZE
+CXXFLAGS += -g -fsanitize=address -fno-omit-frame-pointer -fsanitize=undefined
+endif
 
 OUT = notec
 OUT_ELF = $(OUT).elf
