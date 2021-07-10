@@ -813,7 +813,7 @@ class Stream
 	}
 
 	template <size_t Deep>
-	inline void fill_str(char delim)
+	inline void fill_str(char delim, char *&filler)
 	{
 		while (*m_i != delim) {
 			if (*m_i == Char::eob) {
@@ -821,11 +821,17 @@ class Stream
 					m_error = "Max string size is 255";
 					return;
 				} else {
-					carriage_buf();
+					if (filler >= m_buf) {
+						m_error = "Max string size is 255";
+						return;
+					}
 					feed_buf();
-					return fill_str<Deep + 1>(delim);
+					m_i = m_buf;
+					return fill_str<Deep + 1>(delim, filler);
 				}
 			}
+			*filler = *m_i;
+			filler++;
 			m_i++;
 		}
 	}
@@ -833,11 +839,12 @@ class Stream
 	inline bool adv_str(char delim, Type type)
 	{
 		m_i++;
-		m_res = m_i;
-		fill_str<0>(delim);
+		m_res = m_buf_raw + 2;
+		char *filler = m_res;
+		fill_str<0>(delim, filler);
 		if (m_error)
 			return true;
-		m_res[-1] = m_i - m_res;
+		m_res[-1] = filler - m_res;
 		m_res[-2] = static_cast<char>(type);
 		m_res -= 2;
 		m_i++;
