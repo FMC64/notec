@@ -742,6 +742,7 @@ class Stream
 				}
 			if (*m_i == '\n') {
 				m_row++;
+				m_i++;
 				m_res = next();
 				return true;
 			}
