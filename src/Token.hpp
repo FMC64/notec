@@ -821,6 +821,7 @@ class Stream
 					}
 					m_i++;
 				}
+				break;
 			}
 			m_i++;
 		}
