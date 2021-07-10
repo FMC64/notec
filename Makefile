@@ -47,8 +47,10 @@ $(OUT_BIN): $(OUT_ELF)
 $(OUT_G1A): $(OUT_BIN)
 	g1a-wrapper $(OUT_BIN) -o $(OUT_G1A) -i ./lnk/icon.bmp
 
-$(TEST_OBJ) $(TEST_STL_OBJ): CXXFLAGS_EXTRA = -D CINT_HOST -I test
-$(TEST_OUT): $(TEST_ALL_OBJ)
+test_all_obj: CXXFLAGS_EXTRA = -D CINT_HOST -I test
+test_all_obj: $(TEST_ALL_OBJ)
+
+$(TEST_OUT): test_all_obj
 	$(CXX) $(CXXFLAGS) $(TEST_ALL_OBJ) -o $(TEST_OUT)
 
 test: $(TEST_OUT)
@@ -59,4 +61,4 @@ clean:
 clean_all: clean
 	rm -f $(TEST_STL_OBJ)
 
-.PHONY: all clean check_sh_elf_cxx
+.PHONY: all clean check_sh_elf_cxx test_all_obj
