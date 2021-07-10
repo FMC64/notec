@@ -253,6 +253,29 @@ namespace Char {
 		return res;
 	}
 	static inline constexpr STable op_node_table = computeOpNodeTable();
+
+	static inline constexpr STable computeEscapeTable(void)
+	{
+		STable res;
+		for (uint8_t i = 0; i < res.csize; i++)
+			res[i] = 0;
+
+		res['a'] = 0x07;
+		res['b'] = 0x08;
+		res['e'] = 0x1B;
+		res['f'] = 0x0C;
+		res['n'] = 0x0A;
+		res['r'] = 0x0D;
+		res['t'] = 0x09;
+		res['v'] = 0x0B;
+		res['\\'] = 0x5C;
+		res['\''] = 0x27;
+		res['\"'] = 0x22;
+		res['\?'] = 0x3F;
+
+		return res;
+	}
+	static inline constexpr STable escape_table = computeEscapeTable();
 }
 
 namespace OpCplx {
@@ -812,6 +835,32 @@ class Stream
 		return true;
 	}
 
+	inline bool require_neob(char * const filler)
+	{
+		if (*m_i == Char::eob) {
+			if (filler >= m_buf) {
+				m_error = "Max string size is 255";
+				return false;
+			}
+			feed_buf();
+			m_i = m_buf;
+		}
+		return true;
+	}
+
+	inline char escape(char * const filler)
+	{
+		if (!require_neob(filler))
+			return 0;
+		auto g = Char::escape_table[*m_i];
+		if (g != 0) {
+			m_i++;
+			return g;
+		}
+		m_error = "Unknown escape sequence";
+		return 0;
+	}
+
 	template <size_t Deep>
 	inline void fill_str(char delim, char *&filler)
 	{
@@ -821,18 +870,19 @@ class Stream
 					m_error = "Max string size is 255";
 					return;
 				} else {
-					if (filler >= m_buf) {
-						m_error = "Max string size is 255";
+					if (!require_neob(filler))
 						return;
-					}
-					feed_buf();
-					m_i = m_buf;
 					return fill_str<Deep + 1>(delim, filler);
 				}
 			}
 			*filler = *m_i;
-			filler++;
 			m_i++;
+			if (*filler == '\\') {
+				*filler = escape(filler);
+				if (m_error)
+					return;
+			}
+			filler++;
 		}
 	}
 
