@@ -786,12 +786,12 @@ class Stream
 				m_i++;
 				if (*m_i == Char::eob) {
 					if (!feed_buf())
-						return ret_node();
+						return ret_node();	// Optmization: probably useless ?
 					m_i = m_buf;
 				}
 
 				auto ind = Char::op_node_table[*m_i];
-				if (ind == static_cast<char>(0x80))
+				if (ind == static_cast<char>(0x80))	// Optimization: point to empty node instead
 					return ret_node();
 				auto si = tb->ind[ind];
 				if (si == 0)
@@ -840,7 +840,7 @@ class Stream
 	{
 		m_i++;
 		m_res = m_buf_raw + 2;
-		char *filler = m_res;
+		char *filler = m_res;	// Optmization: overengineered on short strings ? See whether extra code is worth less cycles
 		fill_str<0>(delim, filler);
 		if (m_error)
 			return true;
