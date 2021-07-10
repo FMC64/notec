@@ -781,20 +781,23 @@ class Stream
 
 	inline bool adv_operator(void)
 	{
-		auto ret = [&](char res) -> bool {
-			if (static_cast<Op>(res) == Op::Comment)
-				return adv_comment();
-			if (static_cast<Op>(res) == Op::SLComment)
-				return adv_sl_comment();
+		auto ret_base = [&](char res) -> bool {
 			m_i[-1] = res;
 			m_res = m_i - 2;
 			*m_res = static_cast<char>(Type::Operator);
 			return true;
 		};
+		auto ret = [&](char res) -> bool {
+			if (static_cast<Op>(res) == Op::Comment)
+				return adv_comment();
+			if (static_cast<Op>(res) == Op::SLComment)
+				return adv_sl_comment();
+			return ret_base(res);
+		};
 		auto t = Char::op_table[*m_i];
 		if (t & Char::is_op_direct) {
 			m_i++;
-			return ret(t & Char::op_direct_mask);
+			return ret_base(t & Char::op_direct_mask);
 		}
 		if (t & Char::is_op_node) {
 			auto n = t & Char::op_node_mask;
@@ -810,8 +813,7 @@ class Stream
 			while (true) {
 				m_i++;
 				if (*m_i == Char::eob) {
-					if (!feed_buf())
-						return ret_node();	// Optmization: probably useless ?
+					feed_buf();
 					m_i = m_buf;
 				}
 
