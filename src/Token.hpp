@@ -715,11 +715,13 @@ class Stream
 	{
 		char last_char = 0;
 		while (true) {
-			if (*m_i == Char::eob)
+			if (*m_i == Char::eob) {
 				if (!feed_buf()) {
 					m_res = nullptr;
 					return true;
 				}
+				m_i = m_buf;
+			}
 			if (*m_i == '\n')
 				m_row++;
 			if (last_char == '*' && *m_i == '/') {
@@ -735,11 +737,13 @@ class Stream
 	inline bool adv_sl_comment(void)
 	{
 		while (true) {
-			if (*m_i == Char::eob)
+			if (*m_i == Char::eob) {
 				if (!feed_buf()) {
 					m_res = nullptr;
 					return true;
 				}
+				m_i = m_buf;
+			}
 			if (*m_i == '\n') {
 				m_row++;
 				m_i++;
@@ -780,9 +784,11 @@ class Stream
 			};
 			while (true) {
 				m_i++;
-				if (*m_i == Char::eob)
+				if (*m_i == Char::eob) {
 					if (!feed_buf())
 						return ret_node();
+					m_i = m_buf;
+				}
 
 				auto ind = Char::op_node_table[*m_i];
 				if (ind == static_cast<char>(0x80))
@@ -806,25 +812,31 @@ class Stream
 		return true;
 	}
 
+	template <size_t Deep>
+	inline void fill_str(char delim)
+	{
+		while (*m_i != delim) {
+			if (*m_i == Char::eob) {
+				if constexpr (Deep > 0) {
+					m_error = "Max string size is 255";
+					return;
+				} else {
+					carriage_buf();
+					feed_buf();
+					return fill_str<Deep + 1>(delim);
+				}
+			}
+			m_i++;
+		}
+	}
+
 	inline bool adv_str(char delim, Type type)
 	{
 		m_i++;
 		m_res = m_i;
-		while (*m_i != delim) {
-			if (*m_i == Char::eob) {
-				carriage_buf();
-				feed_buf();
-				while (*m_i != delim) {
-					if (*m_i == Char::eob) {
-						m_error = "Max string size is 255";
-						return true;
-					}
-					m_i++;
-				}
-				break;
-			}
-			m_i++;
-		}
+		fill_str<0>(delim);
+		if (m_error)
+			return true;
 		m_res[-1] = m_i - m_res;
 		m_res[-2] = static_cast<char>(type);
 		m_res -= 2;
