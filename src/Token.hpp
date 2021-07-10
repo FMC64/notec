@@ -238,7 +238,7 @@ namespace Char {
 	{
 		STable res;
 		for (uint8_t i = 0; i < res.csize; i++)
-			res[i] = 0x80;
+			res[i] = 11;
 
 		res['='] = 0;
 		res['+'] = 1;
@@ -287,10 +287,10 @@ namespace OpCplx {
 		// 0x08 flag has next node
 		// 0x04 flag valid code
 		// 0x01 mask res ndx for output code
-		char ind[11];	// =+-><&|*/.:
+		char ind[12];	// =+-><&|*/.:
 		char res[3];
 
-		char pad[2];
+		char pad[1];
 	};
 
 	static_assert(sizeof(Table) == 16, "Table size must be 16");
@@ -817,10 +817,7 @@ class Stream
 					m_i = m_buf;
 				}
 
-				auto ind = Char::op_node_table[*m_i];
-				if (ind == static_cast<char>(0x80))	// Optimization: point to empty node instead
-					return ret_node();
-				auto si = tb->ind[ind];
+				auto si = tb->ind[Char::op_node_table[*m_i]];
 				if (si == 0)
 					return ret_node();
 				if (si & OpCplx::has_valid_code)
