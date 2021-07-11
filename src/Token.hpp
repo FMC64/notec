@@ -787,7 +787,7 @@ class Stream
 		if (*m_i == Char::eob) {
 			if (filler >= m_buf) {
 				m_error = "Max string size is 255";
-				lthrow;
+				throw;
 			}
 			feed_buf();
 			m_i = m_buf;
@@ -805,7 +805,7 @@ class Stream
 			return g;
 		}
 		m_error = "Unknown escape sequence";
-		lthrow;
+		throw;
 	}
 
 	template <size_t Deep>
@@ -815,7 +815,7 @@ class Stream
 			if (*m_i == Char::eob) {
 				if constexpr (Deep > 0) {
 					m_error = "Max string size is 255";
-					lthrow;
+					throw;
 				} else {
 					if (!require_neob(filler))
 						return;
@@ -842,7 +842,7 @@ class Stream
 		adv_str('\'', Type::ValueChar8);
 		if (m_res[1] != 1) {
 			m_error = "Expected one character";
-			lthrow;
+			throw;
 		}
 		m_res[1] = m_res[2];
 		return true;

@@ -29,7 +29,7 @@ bool Stream::adv_operator(void)
 		auto ret_node = [&]() -> bool {
 			if (cur == static_cast<char>(0x80)) {
 				m_error = "Unknown operator";
-				lthrow;
+				throw;
 			}
 			return ret(cur);
 		};
@@ -56,7 +56,7 @@ bool Stream::adv_operator(void)
 		return adv_sl_comment();
 	}
 	m_error = "Unknown operator";
-	lthrow;
+	throw;
 }
 
 bool Stream::adv_str(char delim, Type type)
@@ -92,7 +92,7 @@ char* Stream::next(void)
 			if (adv_i(type))
 			if (*m_i == Char::eob) {
 				m_error = "Max token size is 255";
-				lthrow;
+				throw;
 			}
 		}
 		m_res[-1] = m_i - m_res;
