@@ -29,7 +29,7 @@ bool Stream::adv_operator(void)
 		auto ret_node = [&]() -> bool {
 			if (cur == static_cast<char>(0x80)) {
 				m_error = "Unknown operator";
-				return true;
+				lthrow;
 			}
 			return ret(cur);
 		};
@@ -56,7 +56,7 @@ bool Stream::adv_operator(void)
 		return adv_sl_comment();
 	}
 	m_error = "Unknown operator";
-	return true;
+	lthrow;
 }
 
 bool Stream::adv_str(char delim, Type type)
@@ -65,8 +65,6 @@ bool Stream::adv_str(char delim, Type type)
 	m_res = m_buf_raw + 2;
 	char *filler = m_res;	// Optmization: overengineered on short strings ? See whether extra code is worth less cycles
 	fill_str<0>(delim, filler);
-	if (m_error)
-		return true;
 	m_res[-1] = filler - m_res;
 	m_res[-2] = static_cast<char>(type);
 	m_res -= 2;
@@ -86,19 +84,15 @@ char* Stream::next(void)
 	m_res = m_i;
 	auto type = tok_type(*m_res);
 	if (adv_i(type)) {
-		if (m_error)
-			return nullptr;
 		return m_res;
 	} else {
 		if (*m_i == Char::eob) {
 			carriage_buf();
 			feed_buf();
 			if (adv_i(type))
-				if (m_error)
-					return nullptr;
 			if (*m_i == Char::eob) {
 				m_error = "Max token size is 255";
-				return nullptr;
+				lthrow;
 			}
 		}
 		m_res[-1] = m_i - m_res;

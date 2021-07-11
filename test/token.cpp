@@ -193,3 +193,14 @@ test_case(token_14)
 	while (auto t = toks.next());
 	test_assert(toks.get_error() == nullptr);
 }
+
+test_case(token_15)
+{
+	StrStream s("'aa'");
+	Token::Stream toks(s);
+	catch(toks) {
+		return;
+	}
+	toks.next();
+	test_assert(false);
+}

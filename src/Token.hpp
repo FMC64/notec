@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Stream.hpp"
+#include "excp.hpp"
 
 namespace Token {
 
@@ -786,7 +787,7 @@ class Stream
 		if (*m_i == Char::eob) {
 			if (filler >= m_buf) {
 				m_error = "Max string size is 255";
-				return false;
+				lthrow;
 			}
 			feed_buf();
 			m_i = m_buf;
@@ -804,7 +805,7 @@ class Stream
 			return g;
 		}
 		m_error = "Unknown escape sequence";
-		return 0;
+		lthrow;
 	}
 
 	template <size_t Deep>
@@ -814,7 +815,7 @@ class Stream
 			if (*m_i == Char::eob) {
 				if constexpr (Deep > 0) {
 					m_error = "Max string size is 255";
-					return;
+					lthrow;
 				} else {
 					if (!require_neob(filler))
 						return;
@@ -823,11 +824,8 @@ class Stream
 			}
 			*filler = *m_i;
 			m_i++;
-			if (*filler == '\\') {
+			if (*filler == '\\')
 				*filler = escape(filler);
-				if (m_error)
-					return;
-			}
 			filler++;
 		}
 	}
@@ -842,11 +840,9 @@ class Stream
 	inline bool adv_value_char_8(void)
 	{
 		adv_str('\'', Type::ValueChar8);
-		if (m_error)
-			return true;
 		if (m_res[1] != 1) {
 			m_error = "Expected one character";
-			return true;
+			lthrow;
 		}
 		m_res[1] = m_res[2];
 		return true;
@@ -878,7 +874,6 @@ class Stream
 		return r;
 	}
 
-public:
 	char *m_i;
 	char *m_res;
 	::Stream &m_stream;
@@ -890,9 +885,13 @@ public:
 	char *m_buf;
 
 	const char *m_error = nullptr;
+public:
+	unwind_capable;
+private:
 	size_t m_off = 0;	// bytes read on the file so far, any error will be happening before that offset
 	size_t m_row = 0;
 
+public:
 	inline Stream(::Stream &stream) :
 		m_stream(stream),
 		m_buf(m_buf_raw + 2 + max_token_size)
