@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cint.hpp"
+#include <cstdlib>
 
 namespace StrMap {
 
@@ -32,50 +33,115 @@ struct Block
 
 static_assert(sizeof(Block) == sizeof(uint16_t), "Block must be 2 bytes long");
 
-static inline uint16_t resolve_node(const Block *root, const char *&str)
+class BlockReserve;
+
+class BlockGroup
 {
-	uint16_t cur_i = 0;
-	while (true) {
-		auto cur = root[cur_i];
-		if (cur.c == *str) {	// visit next child
-			str++;
-			if (cur.control & Block::Control::has_next_child) {
-				if (cur.control & Block::Control::next_child_indirect) {
-					cur_i = *reinterpret_cast<const uint16_t*>(root + cur_i + 1);
+	Block *m_root;
+	BlockReserve &m_reserve;
+
+	inline uint16_t resolve_node(const char *&str)
+	{
+		uint16_t cur_i = 0;
+		while (true) {
+			auto cur = m_root[cur_i];
+			if (cur.c == *str) {	// visit next child
+				str++;
+				if (cur.control & Block::Control::has_next_child) {
+					if (cur.control & Block::Control::next_child_indirect) {
+						cur_i = *reinterpret_cast<const uint16_t*>(m_root + cur_i + 1);
+					} else
+						cur_i++;
 				} else
-					cur_i++;
-			} else
-				return cur_i;
-		} else {	// visit next entry
-			if (*str == 0)
-				return cur_i;
-			if (cur.control & Block::Control::has_next_entry) {
-				cur_i = *reinterpret_cast<const uint16_t*>(root + cur_i +
-					(cur.control & Block::Control::next_child_indirect ? 1 : 0) +
-					1);
-			} else {
-				return cur_i;
+					return cur_i;
+			} else {	// visit next entry
+				if (*str == 0)
+					return cur_i;
+				if (cur.control & Block::Control::has_next_entry) {
+					cur_i = *reinterpret_cast<const uint16_t*>(m_root + cur_i +
+						(cur.control & Block::Control::next_child_indirect ? 1 : 0) +
+						1);
+				} else {
+					return cur_i;
+				}
 			}
 		}
 	}
-}
+
+public:
+	BlockGroup(Block *root, BlockReserve &reserve) :
+		m_root(root),
+		m_reserve(reserve)
+	{
+	}
+
+	template <typename T>
+	inline bool resolve(const char *str, T &res)
+	{
+		static_assert(sizeof(T) % sizeof(uint16_t) == 0, "sizeof(T) must be a multiple of two");
+		auto i = resolve_node(str);
+		auto cur = m_root[i];
+		if (*str == 0 && cur.control & Block::Control::has_payload) {
+			auto src = reinterpret_cast<const uint16_t*>(m_root + i +
+						(cur.control & Block::Control::next_child_indirect ? 1 : 0) +
+						(cur.control & Block::Control::has_next_entry ? 1 : 0));
+			auto dst = reinterpret_cast<uint16_t*>(&res);
+			for (size_t i = 0; i < sizeof(T) / sizeof(uint16_t); i++)
+				dst[i] = src[i];
+			return true;
+		} else
+			return false;
+	}
+
+	template <typename T>
+	inline bool insert(const char *str, const T &payload);
+};
+
+class BlockReserve
+{
+	Block *m_buffer = nullptr;
+	size_t m_count = 0;
+	size_t m_allocated = 0;
+
+	friend class BlockGroup;
+
+	void add_blocks(size_t count)
+	{
+		auto needed = m_count + count;
+		if (needed < m_allocated) {
+			m_allocated += 128;
+			m_buffer = reinterpret_cast<Block*>(std::realloc(m_buffer, m_allocated * sizeof(Block)));
+		}
+	}
+
+public:
+	BlockReserve(void)
+	{
+	}
+	~BlockReserve(void)
+	{
+		std::free(m_buffer);
+	}
+
+	BlockGroup allocate(void)
+	{
+		add_blocks(1);
+		auto n = &m_buffer[m_count++];
+		n->c = 0x7F;
+		n->control = 0;
+		return BlockGroup(n, *this);
+	}
+};
 
 template <typename T>
-static inline bool resolve(const Block *root, const char *str, T &res)
+inline bool BlockGroup::insert(const char *str, const T &payload)
 {
 	static_assert(sizeof(T) % sizeof(uint16_t) == 0, "sizeof(T) must be a multiple of two");
-	auto i = resolve_node(root, str);
-	auto cur = root[i];
-	if (*str == 0 && cur.control & Block::Control::has_payload) {
-		auto src = reinterpret_cast<const uint16_t*>(root + i +
-					(cur.control & Block::Control::next_child_indirect ? 1 : 0) +
-					(cur.control & Block::Control::has_next_entry ? 1 : 0));
-		auto dst = reinterpret_cast<uint16_t*>(&res);
-		for (size_t i = 0; i < sizeof(T) / sizeof(uint16_t); i++)
-			dst[i] = src[i];
-		return true;
-	} else
+	auto i = resolve_node(str);
+	auto cur = m_root[i];
+	if (*str == 0 && cur.control & Block::Control::has_payload)
 		return false;
+	// WIP
 }
 
 }
