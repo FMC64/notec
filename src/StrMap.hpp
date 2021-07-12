@@ -109,7 +109,9 @@ class BlockReserve
 	{
 		auto needed = m_count + count;
 		if (needed < m_allocated) {
-			m_allocated += 128;
+			m_allocated *= 2;
+			if (m_allocated < needed)
+				m_allocated = needed;
 			m_buffer = reinterpret_cast<Block*>(std::realloc(m_buffer, m_allocated * sizeof(Block)));
 		}
 	}
