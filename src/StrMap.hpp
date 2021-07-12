@@ -78,16 +78,12 @@ public:
 	template <typename T>
 	inline bool resolve(const char *str, T &res)
 	{
-		static_assert(sizeof(T) % sizeof(uint16_t) == 0, "sizeof(T) must be a multiple of two");
 		auto i = resolve_node(str);
 		auto cur = m_root[i];
 		if (*str == 0 && cur.control & Block::Control::has_payload) {
-			auto src = reinterpret_cast<const uint16_t*>(m_root + i +
+			res = *reinterpret_cast<const T*>(m_root + i +
 						(cur.control & Block::Control::next_child_indirect ? 1 : 0) +
 						(cur.control & Block::Control::has_next_entry ? 1 : 0));
-			auto dst = reinterpret_cast<uint16_t*>(&res);
-			for (size_t i = 0; i < sizeof(T) / sizeof(uint16_t); i++)
-				dst[i] = src[i];
 			return true;
 		} else
 			return false;
@@ -138,7 +134,6 @@ public:
 template <typename T>
 inline bool BlockGroup::insert(const char *str, const T &payload)
 {
-	static_assert(sizeof(T) % sizeof(uint16_t) == 0, "sizeof(T) must be a multiple of two");
 	auto i = resolve_node(str);
 	auto cur = m_root[i];
 	if (*str == 0 && cur.control & Block::Control::has_payload)
