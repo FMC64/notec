@@ -168,7 +168,7 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 			m_root[end() - 1].control &= ~Block::Control::next_child_direct;
 			add_blocks(2);
 			add_block(nind + nsize);
-			add_block(0);
+			m_count++;
 		}
 
 		reinterpret_cast<uint16_t&>(m_root[ind + 1]) = reloc;	// set relocated child index in current node
@@ -183,6 +183,7 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 		add_blocks(4);
 		for (size_t i = 0; i < 3; i++)
 			add_block(m_root[ind + i]);
+		m_count++;
 		m_root[ind].c = 0x7F;	// insert dummy block with current block as next entry
 		m_root[ind].control = Block::Control::has_next_entry;
 		reinterpret_cast<uint16_t&>(m_root[ind + 2]) = new_c;
@@ -208,8 +209,7 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 		ind = end() - 1;
 		m_root[ind].control &= ~(Block::Control::has_next_child | Block::Control::next_child_direct);
 		add_blocks(3);
-		for (size_t i = 0; i < 3; i++)
-			add_block(0);
+		m_count += 3;
 	}
 	m_root[ind].control |= Block::Control::has_payload;
 	m_root[ind + 3] = reinterpret_cast<const Block&>(payload);
