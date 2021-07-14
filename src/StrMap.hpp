@@ -76,7 +76,7 @@ public:
 	template <typename T>
 	inline bool resolve(const char *str, T &res)
 	{
-		static_assert(sizeof(T) == 2, "T size must be 2");
+		static_assert(sizeof(T) == sizeof(uint16_t), "T size must be 2");
 		auto i = resolve_node(str);
 		auto cur = m_root[i];
 		if (*str == 0 && cur.control & Block::Control::has_payload) {
@@ -135,9 +135,9 @@ public:
 
 	inline BlockGroup allocate(void)
 	{
-		add_blocks(2);
+		add_blocks(3);
 		auto n = &m_buffer[m_count++];
-		m_count++;
+		m_count += 2;
 		n->c = 0x7F;
 		n->control = 0;
 		return BlockGroup(n, *this);
@@ -158,7 +158,7 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 		return false;
 
 	constexpr uint16_t payload_size = 1;//sizeof(T) / sizeof(uint16_t);
-	static_assert(sizeof(T) == 2, "T size must be 2");
+	static_assert(sizeof(T) == sizeof(uint16_t), "T size must be 2");
 	auto blk_size = [this](uint16_t ndx) -> uint16_t {
 		auto cur = m_root[ndx];
 		return (cur.control & Block::Control::next_child_direct ? 1 : 3) +
@@ -206,7 +206,9 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 	}
 	// at this point we got all the space we need at ind
 	if (*str != 0) {
-		reinterpret_cast<uint16_t&>(m_root[ind + 2]) = end();	// finally add next entry
+		m_root[ind].control |= Block::Control::has_next_entry;	// finally add next entry
+		reinterpret_cast<uint16_t&>(m_root[ind + 2]) = end();
+
 		while (*str != 0) {
 			m_reserve.add_blocks(1);
 			Block blk{*str, Block::Control::has_next_child | Block::Control::next_child_direct};
@@ -215,13 +217,14 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 		}
 		ind = end() - 1;
 		m_root[ind].control &= ~(Block::Control::has_next_child | Block::Control::next_child_direct);
-		m_reserve.add_blocks(1);
-		m_reserve.add_block(0);
+		m_reserve.add_blocks(3);
+		for (size_t i = 0; i < 3; i++)
+			m_reserve.add_block(0);
 	}
 	m_root[ind].control |= Block::Control::has_payload;
 	m_root[ind + 3] = reinterpret_cast<const Block&>(payload);
 
-	return false;
+	return true;
 }
 
 }
