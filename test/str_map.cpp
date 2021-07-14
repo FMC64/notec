@@ -61,3 +61,27 @@ test_case(strmap_1)
 		test_assert(val == i);
 	}
 }
+
+test_case(strmap_2)
+{
+	StrMap::BlockGroup m;
+	const char *strs[] = {
+		"define",
+		"undef",
+		"ifdef",
+		"ifndef",
+		"elifdef",
+		"elifndef",
+		"else",
+		"endif",
+		"include",
+	};
+
+	for (size_t i = 0; i < array_size(strs); i++)
+		m.insert(strs[i], static_cast<uint16_t>(i));
+	for (size_t i = 0; i < array_size(strs); i++) {
+		uint16_t val;
+		test_assert(m.resolve(strs[i], val));
+		test_assert(val == i);
+	}
+}
