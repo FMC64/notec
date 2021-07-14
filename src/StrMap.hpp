@@ -190,11 +190,12 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 	}
 	// at this point we got all the space we need at ind
 	if (*str != 0) {
+		// finally add next entry
 		if (is_child) {
-			m_root[ind].control |= Block::Control::has_next_child;	// finally add next entry
+			m_root[ind].control |= Block::Control::has_next_child;
 			reinterpret_cast<uint16_t&>(m_root[ind + 1]) = end();
 		} else {
-			m_root[ind].control |= Block::Control::has_next_entry;	// finally add next entry
+			m_root[ind].control |= Block::Control::has_next_entry;
 			reinterpret_cast<uint16_t&>(m_root[ind + 2]) = end();
 		}
 
