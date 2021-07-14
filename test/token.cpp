@@ -190,7 +190,7 @@ test_case(token_14)
 {
 	StrStream s(read_file("./src/Token.hpp"));
 	Token::Stream toks(s);
-	while (auto t = toks.next());
+	while (toks.next());
 	test_assert(toks.get_error() == nullptr);
 }
 
