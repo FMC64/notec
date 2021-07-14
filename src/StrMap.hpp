@@ -44,26 +44,32 @@ class BlockGroup
 		return m_count;
 	}
 
-	inline uint16_t resolve_node(const char *&str)
+	inline uint16_t resolve_node(const char *&str, bool *stopped_out_of_children = nullptr)
 	{
 		uint16_t cur_i = 0;
 		while (true) {
 			auto cur = m_root[cur_i];
 			if (cur.c == *str) {	// visit next child
 				str++;
+				if (*str == 0)
+					return cur_i;
 				if (cur.control & Block::Control::next_child_direct)
 					cur_i++;
 				else if (cur.control & Block::Control::has_next_child)
 					cur_i = *reinterpret_cast<const uint16_t*>(m_root + cur_i + 1);
-				else
+				else {
+					if (stopped_out_of_children)
+						*stopped_out_of_children = true;
 					return cur_i;
-				if (*str == 0)
-					return cur_i;
+				}
 			} else {	// visit next entry
 				if (cur.control & Block::Control::has_next_entry)
 					cur_i = *reinterpret_cast<const uint16_t*>(m_root + cur_i + 2);
-				else
+				else {
+					if (stopped_out_of_children)
+						*stopped_out_of_children = false;
 					return cur_i;
+				}
 			}
 		}
 	}
@@ -124,14 +130,13 @@ private:
 	{
 		return m_count;
 	}
-
-public:
 };
 
 template <typename T>
 inline bool BlockGroup::insert(const char *str, const T &payload)
 {
-	auto ind = resolve_node(str);
+	bool is_child;
+	auto ind = resolve_node(str, &is_child);
 	auto cur = m_root[ind];
 	if (*str == 0 && cur.control & Block::Control::has_payload)
 		return false;
@@ -185,8 +190,13 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 	}
 	// at this point we got all the space we need at ind
 	if (*str != 0) {
-		m_root[ind].control |= Block::Control::has_next_entry;	// finally add next entry
-		reinterpret_cast<uint16_t&>(m_root[ind + 2]) = end();
+		if (is_child) {
+			m_root[ind].control |= Block::Control::has_next_child;	// finally add next entry
+			reinterpret_cast<uint16_t&>(m_root[ind + 1]) = end();
+		} else {
+			m_root[ind].control |= Block::Control::has_next_entry;	// finally add next entry
+			reinterpret_cast<uint16_t&>(m_root[ind + 2]) = end();
+		}
 
 		while (*str != 0) {
 			add_blocks(1);

@@ -4,8 +4,7 @@
 
 test_case(strmap_0)
 {
-	StrMap::BlockReserve r;
-	auto m = r.allocate();
+	StrMap::BlockGroup m;
 	m.insert("abc", static_cast<uint16_t>(1));
 	uint16_t res;
 	test_assert(m.resolve("abc", res));
@@ -17,14 +16,13 @@ test_case(strmap_0)
 
 test_case(strmap_1)
 {
-	StrMap::BlockReserve r;
-	auto m = r.allocate();
+	StrMap::BlockGroup m;
 	const char *strs[] = {
 		"auto",
-		"break"
+		"break",
 		"case",
 		"char",
-		"const"
+		"const",
 		"continue",
 		"default",
 		"do",
@@ -57,4 +55,9 @@ test_case(strmap_1)
 
 	for (size_t i = 0; i < array_size(strs); i++)
 		m.insert(strs[i], static_cast<uint16_t>(i));
+	for (size_t i = 0; i < array_size(strs); i++) {
+		uint16_t val;
+		test_assert(m.resolve(strs[i], val));
+		test_assert(val == i);
+	}
 }
