@@ -1,6 +1,6 @@
 #pragma once
 
-#include <cstdint>
+#include "cint.hpp"
 
 template <typename T>
 T min(const T &a, const T &b)
