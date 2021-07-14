@@ -33,14 +33,16 @@ struct Block
 
 static_assert(sizeof(Block) == sizeof(uint16_t), "Block must be 2 bytes long");
 
-class BlockReserve;
-
 class BlockGroup
 {
-	Block *m_root;
-	BlockReserve &m_reserve;
+	Block *m_root = nullptr;
+	size_t m_count = 0;
+	size_t m_allocated = 0;
 
-	inline uint16_t end(void) const;
+	inline uint16_t end(void) const
+	{
+		return m_count;
+	}
 
 	inline uint16_t resolve_node(const char *&str)
 	{
@@ -67,10 +69,17 @@ class BlockGroup
 	}
 
 public:
-	inline BlockGroup(Block *root, BlockReserve &reserve) :
-		m_root(root),
-		m_reserve(reserve)
+	inline BlockGroup(void)
 	{
+		add_blocks(3);
+		auto n = &m_root[m_count++];
+		m_count += 2;
+		n->c = 0x7F;
+		n->control = 0;
+	}
+	inline ~BlockGroup(void)
+	{
+		std::free(m_root);
 	}
 
 	template <typename T>
@@ -88,16 +97,8 @@ public:
 
 	template <typename T>
 	inline bool insert(const char *str, const T &payload);
-};
 
-class BlockReserve
-{
-	Block *m_buffer = nullptr;
-	size_t m_count = 0;
-	size_t m_allocated = 0;
-
-	friend class BlockGroup;
-
+private:
 	inline void add_blocks(size_t count)
 	{
 		auto needed = m_count + count;
@@ -105,18 +106,18 @@ class BlockReserve
 			m_allocated *= 2;
 			if (m_allocated < needed)
 				m_allocated = needed;
-			m_buffer = reinterpret_cast<Block*>(std::realloc(m_buffer, m_allocated * sizeof(Block)));
+			m_root = reinterpret_cast<Block*>(std::realloc(m_root, m_allocated * sizeof(Block)));
 		}
 	}
 
 	inline void add_block(const Block &value)
 	{
-		m_buffer[m_count++] = value;
+		m_root[m_count++] = value;
 	}
 
 	inline void add_block(uint16_t value)
 	{
-		*reinterpret_cast<uint16_t*>(&m_buffer[m_count++]) = value;
+		*reinterpret_cast<uint16_t*>(&m_root[m_count++]) = value;
 	}
 
 	inline uint16_t end(void)
@@ -125,29 +126,7 @@ class BlockReserve
 	}
 
 public:
-	inline BlockReserve(void)
-	{
-	}
-	inline ~BlockReserve(void)
-	{
-		std::free(m_buffer);
-	}
-
-	inline BlockGroup allocate(void)
-	{
-		add_blocks(3);
-		auto n = &m_buffer[m_count++];
-		m_count += 2;
-		n->c = 0x7F;
-		n->control = 0;
-		return BlockGroup(n, *this);
-	}
 };
-
-inline uint16_t BlockGroup::end(void) const
-{
-	return &m_reserve.m_buffer[m_reserve.end()] - m_root;
-}
 
 template <typename T>
 inline bool BlockGroup::insert(const char *str, const T &payload)
@@ -177,14 +156,14 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 		entry_size = 1 + nsize;	// this is how much space we can work with from current node
 
 		auto reloc = end();
-		m_reserve.add_blocks(nsize);
+		add_blocks(nsize);
 		for (size_t i = 0; i < nsize; i++)	// relocate children at end to make room on current node
-			m_reserve.add_block(m_root[nind + i]);
+			add_block(m_root[nind + i]);
 		if (next.control & Block::Control::next_child_direct) {
 			m_root[end() - 1].control &= ~Block::Control::next_child_direct;
-			m_reserve.add_blocks(2);
-			m_reserve.add_block(nind + nsize);
-			m_reserve.add_block(0);
+			add_blocks(2);
+			add_block(nind + nsize);
+			add_block(0);
 		}
 
 		reinterpret_cast<uint16_t&>(m_root[ind + 1]) = reloc;	// set relocated child index in current node
@@ -196,9 +175,9 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 	// at this point we have at least 3 blocks available at ind but possibly no room for payload
 	if (entry_size < needed) {
 		auto new_c = end();
-		m_reserve.add_blocks(4);
+		add_blocks(4);
 		for (size_t i = 0; i < 3; i++)
-			m_reserve.add_block(m_root[ind + i]);
+			add_block(m_root[ind + i]);
 		m_root[ind].c = 0x7F;	// insert dummy block with current block as next entry
 		m_root[ind].control = Block::Control::has_next_entry;
 		reinterpret_cast<uint16_t&>(m_root[ind + 2]) = new_c;
@@ -210,16 +189,16 @@ inline bool BlockGroup::insert(const char *str, const T &payload)
 		reinterpret_cast<uint16_t&>(m_root[ind + 2]) = end();
 
 		while (*str != 0) {
-			m_reserve.add_blocks(1);
+			add_blocks(1);
 			Block blk{*str, Block::Control::has_next_child | Block::Control::next_child_direct};
-			m_reserve.add_block(blk);
+			add_block(blk);
 			str++;
 		}
 		ind = end() - 1;
 		m_root[ind].control &= ~(Block::Control::has_next_child | Block::Control::next_child_direct);
-		m_reserve.add_blocks(3);
+		add_blocks(3);
 		for (size_t i = 0; i < 3; i++)
-			m_reserve.add_block(0);
+			add_block(0);
 	}
 	m_root[ind].control |= Block::Control::has_payload;
 	m_root[ind + 3] = reinterpret_cast<const Block&>(payload);
