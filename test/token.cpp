@@ -204,3 +204,22 @@ test_case(token_15)
 	toks.next();
 	test_assert(false);
 }
+
+
+test_case(token_16)
+{
+	StrStream s("a // abc \\\ndef\ng");
+	Token::Stream toks(s);
+	next_assert(toks, Type::Identifier, "a");
+	next_assert(toks, Type::Identifier, "g");
+}
+
+
+test_case(token_17)
+{
+	StrStream s("a\\\ndef");
+	Token::Stream toks(s);
+	next_assert(toks, Type::Identifier, "a");
+	next_assert(toks, Type::Identifier, "def");
+	test_assert(toks.get_line_escaped());
+}

@@ -689,9 +689,13 @@ class Stream
 
 	inline void adv_wspace(void)
 	{
-		while (Char::is_whitespace(*m_i)) {
-			if (*m_i == '\n')
+		char last = 0;
+		while (Char::is_whitespace(*m_i) || *m_i == '\\') {
+			if (*m_i == '\n') {
+				m_line_escaped = last == '\\';
 				m_row++;
+			}
+			last = *m_i;
 			m_i++;
 		}
 	}
@@ -762,6 +766,7 @@ class Stream
 
 	inline bool adv_sl_comment(void)
 	{
+		char last = 0;
 		while (true) {
 			if (*m_i == Char::eob) {
 				if (!feed_buf()) {
@@ -772,10 +777,13 @@ class Stream
 			}
 			if (*m_i == '\n') {
 				m_row++;
-				m_i++;
-				m_res = next();
-				return true;
+				if (last != '\\') {
+					m_i++;
+					m_res = next();
+					return true;
+				}
 			}
+			last = *m_i;
 			m_i++;
 		}
 	}
@@ -890,6 +898,7 @@ public:
 private:
 	size_t m_off = 0;	// bytes read on the file so far, any error will be happening before that offset
 	size_t m_row = 0;
+	bool m_line_escaped = false;
 
 public:
 	inline Stream(::Stream &stream) :
@@ -918,6 +927,11 @@ public:
 	inline size_t get_row(void) const	// human-readable row, to use only for prompt
 	{
 		return m_row + 1;
+	}
+
+	inline bool get_line_escaped(void) const
+	{
+		return m_line_escaped;
 	}
 };
 
