@@ -28,13 +28,13 @@ enum class Op : char {
 	BitXor = 16,	// ^
 	Mod = 17,	// %
 	Div = 18,	// /
+	Sharp = 19,	// #
 
 	NotEqual = 13,	// !=
 
 	PlusPlus = 14,	// ++
 	PlusEqual = 15,	// +=
 
-	And = 19,	// &
 	BitAndEqual = 20,	// &=
 
 	Or = 21,	// |
@@ -81,7 +81,9 @@ enum class Op : char {
 	PointMember = 52,	// .*
 	ArrowMember = 53,	// ->*
 
-	Arrow = 54	// ->
+	Arrow = 54,	// ->
+	And = 55,	// &
+	DoubleSharp = 56	// ##
 };
 
 namespace Char {
@@ -230,6 +232,7 @@ namespace Char {
 		res['='] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Equal));
 		res['.'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Point));
 		res[':'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Colon));
+		res['#'] = static_cast<char>(is_op_node | static_cast<uint8_t>(Op::Sharp));
 
 		return res;
 	}
@@ -239,7 +242,7 @@ namespace Char {
 	{
 		STable res;
 		for (uint8_t i = 0; i < res.csize; i++)
-			res[i] = 11;
+			res[i] = 12;
 
 		res['='] = 0;
 		res['+'] = 1;
@@ -252,6 +255,7 @@ namespace Char {
 		res['/'] = 8;
 		res['.'] = 9;
 		res[':'] = 10;
+		res['#'] = 11;
 
 		return res;
 	}
@@ -288,17 +292,15 @@ namespace OpCplx {
 		// 0x08 flag has next node
 		// 0x04 flag valid code
 		// 0x01 mask res ndx for output code
-		char ind[12];	// =+-><&|*/.:
+		char ind[13];	// =+-><&|*/.:#
 		char res[3];
-
-		char pad[1];
 	};
 
 	static_assert(sizeof(Table) == 16, "Table size must be 16");
 
 	struct GTable
 	{
-		Table nodes[19];
+		Table nodes[20];
 	};
 
 	static inline constexpr uint8_t has_next_node = 0x08;
@@ -338,8 +340,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::NotEqual)	// !=
-				},
-				{}
+				}
 			},
 			{	// [1] +
 				{
@@ -357,8 +358,7 @@ namespace OpCplx {
 				{
 					static_cast<char>(Op::PlusEqual),	// +=
 					static_cast<char>(Op::PlusPlus)	// ++
-				},
-				{}
+				}
 			},
 			{	// [2] -
 				{
@@ -377,8 +377,7 @@ namespace OpCplx {
 					static_cast<char>(Op::MinusEqual),	// -=
 					static_cast<char>(Op::MinusMinus),	// --
 					static_cast<char>(Op::Arrow)	// ->
-				},
-				{}
+				}
 			},
 			{	// [3] &
 				{
@@ -396,8 +395,7 @@ namespace OpCplx {
 				{
 					static_cast<char>(Op::BitAndEqual),	// &=
 					static_cast<char>(Op::And)	// &&
-				},
-				{}
+				}
 			},
 			{	// [4] |
 				{
@@ -415,8 +413,7 @@ namespace OpCplx {
 				{
 					static_cast<char>(Op::BitOrEqual),	// |=
 					static_cast<char>(Op::Or)	// ||
-				},
-				{}
+				}
 			},
 			{	// [5] <=
 				{
@@ -433,8 +430,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::TWComp)	// <=>
-				},
-				{}
+				}
 			},
 			{	// [6] *
 				{
@@ -451,8 +447,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::MulEqual)	// *=
-				},
-				{}
+				}
 			},
 			{	// [7] ->
 				{
@@ -469,8 +464,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::ArrowMember)	// ->*
-				},
-				{}
+				}
 			},
 			{	// [8] :
 				{
@@ -488,8 +482,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::Scope)	// ::
-				},
-				{}
+				}
 			},
 			{	// [9] <
 				{
@@ -507,8 +500,7 @@ namespace OpCplx {
 				{
 					static_cast<char>(Op::LessEqual),	// <=
 					static_cast<char>(Op::BitLeft)	// <<
-				},
-				{}
+				}
 			},
 			{	// [10] >
 				{
@@ -526,8 +518,7 @@ namespace OpCplx {
 				{
 					static_cast<char>(Op::GreaterEqual),	// >=
 					static_cast<char>(Op::Greater)	// >>
-				},
-				{}
+				}
 			},
 			{	// [11] =
 				{
@@ -544,8 +535,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::EqualEqual)	// ==
-				},
-				{}
+				}
 			},
 			{	// [12] .
 				{
@@ -562,8 +552,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::PointMember)	// .*
-				},
-				{}
+				}
 			},
 			{	// [13] ..
 				{
@@ -580,8 +569,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::Expand)	// ...
-				},
-				{}
+				}
 			},
 			{	// [14] <<
 				{
@@ -598,8 +586,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::BitLeftEqual)	// <<=
-				},
-				{}
+				}
 			},
 			{	// [15] >>
 				{
@@ -616,8 +603,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::BitRightEqual)	// >>=
-				},
-				{}
+				}
 			},
 			{	// [16] ^
 				{
@@ -634,8 +620,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::BitXorEqual)	// ^=
-				},
-				{}
+				}
 			},
 			{	// [17] %
 				{
@@ -652,8 +637,7 @@ namespace OpCplx {
 				},
 				{
 					static_cast<char>(Op::ModEqual)	// %=
-				},
-				{}
+				}
 			},
 			{	// [18] /
 				{
@@ -672,8 +656,26 @@ namespace OpCplx {
 					static_cast<char>(Op::DivEqual),	// /=
 					static_cast<char>(Op::Comment),	// /*
 					static_cast<char>(Op::SLComment)	// //
+				}
+			},
+			{	// [19] #
+				{
+					0,	// [0] =
+					0,	// [1] +
+					0,	// [2] -
+					0,	// [3] >
+					0,	// [4] <
+					0,	// [5] &
+					0,	// [6] |
+					0,	// [7] *
+					0,	// [8] /
+					0,	// [9] .
+					0,	// [A] :
+					gtb(0, empty)	// [B] #
 				},
-				{}
+				{
+					static_cast<char>(Op::DoubleSharp)	// ##
+				}
 			},
 		}};
 	}
