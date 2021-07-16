@@ -85,8 +85,9 @@ char* Stream::next(void)
 		if (*m_i == Char::eob) {
 			carriage_buf();
 			feed_buf();
-			if (adv_i(type))
-			if (*m_i == Char::eob) {
+			type = static_cast<Type>(static_cast<char>(type) & type_range);
+			adv_i(type);	// type & range is continuous
+			if (*m_i == Char::eob && !m_stream.eof()) {
 				m_error = "Max token size is 255";
 				throw;
 			}

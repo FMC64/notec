@@ -12,6 +12,7 @@ enum class Type : char {
 	StringLiteral = 3,
 	ValueChar8 = 4
 };
+static inline constexpr char type_range = 0x07;
 
 enum class Op : char {
 	Not = 0,	// !

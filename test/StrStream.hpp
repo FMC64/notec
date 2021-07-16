@@ -67,4 +67,9 @@ public:
 		m_ndx += to_read;
 		return to_read;
 	}
+
+	bool eof(void) const override
+	{
+		return m_ndx >= m_buf.size;
+	}
 };
