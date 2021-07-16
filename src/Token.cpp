@@ -70,32 +70,21 @@ bool Stream::adv_str(char delim, Type type)
 
 char* Stream::next(void)
 {
-	adv_wspace();
-	while (*m_i == Char::eob) {
-		if (!feed_buf())
-			return nullptr;
-		m_i = m_buf;
-		adv_wspace();
-	}
+	if (!skip_blank())
+		return nullptr;
+	m_res = m_i;
+	return gather_type(tok_type(*m_res));
+}
+
+char* Stream::next_include(void)
+{
+	if (!skip_blank())
+		return nullptr;
 	m_res = m_i;
 	auto type = tok_type(*m_res);
-	if (adv_i(type)) {
-		return m_res;
-	} else {
-		if (*m_i == Char::eob) {
-			carriage_buf();
-			feed_buf();
-			type = static_cast<Type>(static_cast<char>(type) & type_range);
-			adv_i(type);	// type & range is continuous
-			if (*m_i == Char::eob && !m_stream.eof()) {
-				m_error = "Max token size is 255";
-				throw;
-			}
-		}
-		m_res[-1] = m_i - m_res;
-		m_res[-2] = static_cast<char>(type) & 0x07;
-		return m_res - 2;
-	}
+	if (*m_res == '<')
+		type = Type::StringSysInclude;
+	return gather_type(type);
 }
 
 }

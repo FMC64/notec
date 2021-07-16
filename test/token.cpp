@@ -5,9 +5,13 @@
 
 using namespace Token;
 
-static void next_assert(Token::Stream &toks, Type exp_type, const char *exp)
+static void next_assert(Token::Stream &toks, Type exp_type, const char *exp, bool use_include = false)
 {
-	auto n = toks.next();
+	char *n;
+	if (use_include)
+		n = toks.next_include();
+	else
+		n = toks.next();
 	if (n == nullptr)
 		throw "Expected token, got nothing";
 	test_assert(static_cast<Type>(n[0]) == exp_type);
@@ -226,4 +230,12 @@ test_case(token_17)
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "def");
 	test_assert(toks.get_line_escaped());
+}
+
+test_case(token_18)
+{
+	StrStream s("<cstdio>");
+	Token::Stream toks(s);
+	next_assert(toks, Type::StringSysInclude, "cstdio", true);
+	test_assert(toks.next() == nullptr);
 }

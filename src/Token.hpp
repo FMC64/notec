@@ -10,7 +10,8 @@ enum class Type : char {
 	Identifier = 1,
 	Operator = 2,
 	StringLiteral = 3,
-	ValueChar8 = 4
+	ValueChar8 = 4,
+	StringSysInclude = 5
 };
 static inline constexpr char type_range = 0x07;
 
@@ -848,6 +849,11 @@ class Stream
 		return adv_str('\"', Type::StringLiteral);
 	}
 
+	inline bool adv_string_sys_include(void)
+	{
+		return adv_str('>', Type::StringSysInclude);
+	}
+
 	inline bool adv_value_char_8(void)
 	{
 		adv_str('\'', Type::ValueChar8);
@@ -866,7 +872,7 @@ class Stream
 		&Stream::adv_operator,		// 2
 		&Stream::adv_string_literal,	// 3
 		&Stream::adv_value_char_8,	// 4
-		nullptr,	// 5
+		&Stream::adv_string_sys_include,	// 5
 		nullptr,	// 6
 		nullptr,	// 7
 		&Stream::adv_number_literal_point	// 8
@@ -903,6 +909,39 @@ private:
 	size_t m_row = 0;
 	bool m_line_escaped = false;
 
+	inline bool skip_blank(void)
+	{
+		adv_wspace();
+		while (*m_i == Char::eob) {
+			if (!feed_buf())
+				return false;
+			m_i = m_buf;
+			adv_wspace();
+		}
+		return true;
+	}
+
+	inline char* gather_type(Type type)
+	{
+		if (adv_i(type)) {
+			return m_res;
+		} else {
+			if (*m_i == Char::eob) {
+				carriage_buf();
+				feed_buf();
+				type = static_cast<Type>(static_cast<char>(type) & type_range);
+				adv_i(type);	// type & range is continuous
+				if (*m_i == Char::eob && !m_stream.eof()) {
+					m_error = "Max token size is 255";
+					throw;
+				}
+			}
+			m_res[-1] = m_i - m_res;
+			m_res[-2] = static_cast<char>(type) & 0x07;
+			return m_res - 2;
+		}
+	}
+
 public:
 	inline Stream(::Stream &stream) :
 		m_stream(stream),
@@ -913,6 +952,7 @@ public:
 	}
 
 	char* next(void);
+	char* next_include(void);
 
 	inline const char* get_error(void) const
 	{
