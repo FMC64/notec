@@ -61,6 +61,10 @@ public:
 		m_ndx = ndx;
 	}
 
+	void close(void)
+	{
+	}
+
 	// custom test methods
 	void set_file_data(const char *str)
 	{

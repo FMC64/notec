@@ -1032,6 +1032,7 @@ public:
 
 	inline bool pop(void)
 	{
+		m_stream.close();
 		m_stack -= 1 + m_stack[-1];
 		if (m_stack == m_stack_base)
 			return false;

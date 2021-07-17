@@ -4,7 +4,7 @@
 
 int main(void)
 {
-	Token::Stream toks(*(::Stream*)(nullptr));
+	Token::Stream toks;
 	catch (toks) {
 		return 1;
 	}
