@@ -4,7 +4,7 @@
 
 #ifdef CINT_HOST
 
-#include "test/StrStream.hpp"
+#include "StrStream.hpp"
 
 #else
 

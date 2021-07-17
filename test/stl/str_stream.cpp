@@ -10,7 +10,8 @@ static std::vector<std::string> set(const char *in)
 	char buf[BufSize + 1];
 	std::vector<std::string> res;
 
-	StrStream s(in);
+	StrStream s;
+	s.set_file_data(in);
 	while (auto size = s.read(buf, BufSize)) {
 		buf[size] = 0;
 		res.emplace_back(buf);

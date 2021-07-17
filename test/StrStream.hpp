@@ -11,32 +11,19 @@ class StrStream
 public:
 	struct Buffer
 	{
-		size_t size;
-		char *data;
+		size_t size = 0;
+		char *data = nullptr;
 
-		Buffer(size_t size, const char *buf)
+		Buffer(void)
 		{
-			this->size = size;
-			data = new char[size];
-			std::memcpy(data, buf, size);
-		}
-		struct buf_rvalue {};
-		static inline constexpr buf_rvalue buf_rvalue_v{};
-		Buffer(size_t size, char *buf, const buf_rvalue&) :
-			size(size),
-			data(buf)
-		{
-		}
-		Buffer(Buffer &&other) :
-			size(other.size),
-			data(other.data)
-		{
-			other.data = nullptr;
 		}
 		~Buffer(void)
 		{
-			if (data != nullptr)
+			if (data != nullptr) {
 				delete[] data;
+				size = 0;
+				data = nullptr;
+			}
 		}
 	};
 
@@ -44,16 +31,7 @@ private:
 	Buffer m_buf;
 public:
 
-	StrStream(const char *str) :
-		StrStream(std::strlen(str), str)
-	{
-	}
-	StrStream(size_t size, const char *buf) :
-		m_buf(size, buf)
-	{
-	}
-	StrStream(Buffer &&buf) :
-		m_buf(static_cast<Buffer&&>(buf))
+	StrStream(void)
 	{
 	}
 
@@ -70,6 +48,28 @@ public:
 	bool eof(void) const
 	{
 		return m_ndx >= m_buf.size;
+	}
+
+	bool open(const char *filepath)
+	{
+		static_cast<void>(filepath);
+		return true;
+	}
+
+	// custom test methods
+	void set_file_data(const char *str)
+	{
+		m_buf.size = std::strlen(str);
+		m_buf.data = new char[m_buf.size];
+		std::memcpy(m_buf.data, str, m_buf.size);
+	}
+
+	void set_file_data(Buffer &&buf)
+	{
+		m_buf.size = buf.size;
+		m_buf.data = buf.data;
+		buf.size = 0;
+		buf.data = nullptr;
 	}
 };
 

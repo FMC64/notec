@@ -895,7 +895,7 @@ class Stream
 
 	char *m_i;
 	char *m_res;
-	::Stream &m_stream;
+	::Stream m_stream;
 	static inline constexpr size_t max_token_size = 96;	// keep whole buffer below 256 bytes
 	static inline constexpr size_t buf_size = max_token_size;
 	char m_buf_raw[2 +	// token struct type + size
@@ -907,9 +907,9 @@ class Stream
 public:
 	unwind_capable;
 private:
-	size_t m_off = 0;	// bytes read on the file so far, any error will be happening before that offset
-	size_t m_row = 0;
-	bool m_line_escaped = false;
+	size_t m_off;	// bytes read on the file so far, any error will be happening before that offset
+	size_t m_row;
+	bool m_line_escaped;
 
 	inline bool skip_blank(void)
 	{
@@ -945,17 +945,17 @@ private:
 	}
 
 public:
-	inline Stream(::Stream &stream) :
-		m_stream(stream),
-		m_buf(m_buf_raw + 2 + max_token_size)
+	inline Stream(void)
 	{
-		m_i = m_buf;
-		*m_i = Char::eob;
-		m_buf[buf_size] = Char::buf_overflow;
 	}
 
 	char* next(void);
 	char* next_include(void);
+
+	inline ::Stream& get_stream(void)
+	{
+		return m_stream;
+	}
 
 	inline const char* get_error(void) const
 	{
@@ -982,6 +982,27 @@ public:
 	inline bool get_line_escaped(void) const
 	{
 		return m_line_escaped;
+	}
+
+	inline void push(const char *filepath)
+	{
+		m_buf = m_buf_raw + 2 + max_token_size;
+		m_i = m_buf;
+		*m_i = Char::eob;
+		m_buf[buf_size] = Char::buf_overflow;
+		m_off = 0;
+		m_row = 0;
+		m_line_escaped = false;
+
+		if (!m_stream.open(filepath)) {
+			m_error = filepath;
+			throw;
+		}
+	}
+
+	inline bool pop(void)
+	{
+		return false;
 	}
 };
 

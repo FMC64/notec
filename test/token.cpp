@@ -5,6 +5,22 @@
 
 using namespace Token;
 
+static Token::Stream init_file(const char *src)
+{
+	auto res = Token::Stream();
+	res.get_stream().set_file_data(src);
+	res.push("");
+	return res;
+}
+
+static Token::Stream init_file(StrStream::Buffer &&buf)
+{
+	auto res = Token::Stream();
+	res.get_stream().set_file_data(static_cast<StrStream::Buffer&&>(buf));
+	res.push("");
+	return res;
+}
+
 static void next_assert(Token::Stream &toks, Type exp_type, const char *exp, bool use_include = false)
 {
 	char *n;
@@ -49,13 +65,15 @@ static StrStream::Buffer read_file(const char *path)
 	std::rewind(file);
 	auto buf = new char[size];
 	test_assert(std::fread(buf, 1, size, file) == size);
-	return StrStream::Buffer(size, buf, StrStream::Buffer::buf_rvalue_v);
+	StrStream::Buffer res;
+	res.size = size;
+	res.data = buf;
+	return res;
 }
 
 test_case(token_0)
 {
-	StrStream s("a b\tc\n");
-	Token::Stream toks(s);
+	auto toks = init_file("a b\tc\n");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "b");
 	next_assert(toks, Type::Identifier, "c");
@@ -64,8 +82,7 @@ test_case(token_0)
 
 test_case(token_1)
 {
-	StrStream s("\t\t12   a b\tc _90 0.2e10 .2e10\n");
-	Token::Stream toks(s);
+	auto toks = init_file("\t\t12   a b\tc _90 0.2e10 .2e10\n");
 	next_assert(toks, Type::NumberLiteral, "12");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "b");
@@ -78,40 +95,35 @@ test_case(token_1)
 
 test_case(token_2)
 {
-	StrStream s("+");
-	Token::Stream toks(s);
+	auto toks = init_file("+");
 	next_assert_op(toks, Type::Operator, Op::Plus);
 	test_assert(toks.next() == nullptr);
 }
 
 test_case(token_3)
 {
-	StrStream s("++");
-	Token::Stream toks(s);
+	auto toks = init_file("++");
 	next_assert_op(toks, Type::Operator, Op::PlusPlus);
 	test_assert(toks.next() == nullptr);
 }
 
 test_case(token_4)
 {
-	StrStream s("...");
-	Token::Stream toks(s);
+	auto toks = init_file("...");
 	next_assert_op(toks, Type::Operator, Op::Expand);
 	test_assert(toks.next() == nullptr);
 }
 
 test_case(token_5)
 {
-	StrStream s("<<=");
-	Token::Stream toks(s);
+	auto toks = init_file("<<=");
 	next_assert_op(toks, Type::Operator, Op::BitLeftEqual);
 	test_assert(toks.next() == nullptr);
 }
 
 test_case(token_6)
 {
-	StrStream s(". . .");
-	Token::Stream toks(s);
+	auto toks = init_file(". . .");
 	next_assert_op(toks, Type::Operator, Op::Point);
 	next_assert_op(toks, Type::Operator, Op::Point);
 	next_assert_op(toks, Type::Operator, Op::Point);
@@ -120,8 +132,7 @@ test_case(token_6)
 
 test_case(token_7)
 {
-	StrStream s(". . .\n\na");
-	Token::Stream toks(s);
+	auto toks = init_file(". . .\n\na");
 	test_assert(toks.get_off() == 0);
 	while (toks.next());
 	test_assert(toks.get_row() == 3);
@@ -129,8 +140,7 @@ test_case(token_7)
 
 test_case(token_8)
 {
-	StrStream s("(0 ? a::b : c::d) <=a<=>");
-	Token::Stream toks(s);
+	auto toks = init_file("(0 ? a::b : c::d) <=a<=>");
 	next_assert_op(toks, Type::Operator, Op::LPar);
 	next_assert(toks, Type::NumberLiteral, "0");
 	next_assert_op(toks, Type::Operator, Op::Huh);
@@ -150,24 +160,21 @@ test_case(token_8)
 
 test_case(token_9)
 {
-	StrStream s("\"abc\"  ");
-	Token::Stream toks(s);
+	auto toks = init_file("\"abc\"  ");
 	next_assert(toks, Type::StringLiteral, "abc");
 	test_assert(toks.next() == nullptr);
 }
 
 test_case(token_10)
 {
-	StrStream s("\'g\'  ");
-	Token::Stream toks(s);
+	auto toks = init_file("\'g\'  ");
 	next_assert_char(toks, Type::ValueChar8, 'g');
 	test_assert(toks.next() == nullptr);
 }
 
 test_case(token_11)
 {
-	StrStream s("a	// bcd   \nefg  ");
-	Token::Stream toks(s);
+	auto toks = init_file("a	// bcd   \nefg  ");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "efg");
 	test_assert(toks.next() == nullptr);
@@ -175,8 +182,7 @@ test_case(token_11)
 
 test_case(token_12)
 {
-	StrStream s("a	/* //bcd  */ \nefg  ");
-	Token::Stream toks(s);
+	auto toks = init_file("a	/* //bcd  */ \nefg  ");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "efg");
 	test_assert(toks.next() == nullptr);
@@ -184,8 +190,7 @@ test_case(token_12)
 
 test_case(token_13)
 {
-	StrStream s("#define test ##\nefg  ");
-	Token::Stream toks(s);
+	auto toks = init_file("#define test ##\nefg  ");
 	next_assert_op(toks, Type::Operator, Op::Sharp);
 	next_assert(toks, Type::Identifier, "define");
 	next_assert(toks, Type::Identifier, "test");
@@ -196,16 +201,14 @@ test_case(token_13)
 
 test_case(token_14)
 {
-	StrStream s(read_file("./src/Token.hpp"));
-	Token::Stream toks(s);
+	auto toks = init_file(read_file("./src/Token.hpp"));
 	while (toks.next());
 	test_assert(toks.get_error() == nullptr);
 }
 
 test_case(token_15)
 {
-	StrStream s("'aa'");
-	Token::Stream toks(s);
+	auto toks = init_file("'aa'");
 	catch(toks) {
 		return;
 	}
@@ -216,8 +219,7 @@ test_case(token_15)
 
 test_case(token_16)
 {
-	StrStream s("a // abc \\\ndef\ng");
-	Token::Stream toks(s);
+	auto toks = init_file("a // abc \\\ndef\ng");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "g");
 }
@@ -225,8 +227,7 @@ test_case(token_16)
 
 test_case(token_17)
 {
-	StrStream s("a\\\ndef");
-	Token::Stream toks(s);
+	auto toks = init_file("a\\\ndef");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "def");
 	test_assert(toks.get_line_escaped());
@@ -234,8 +235,7 @@ test_case(token_17)
 
 test_case(token_18)
 {
-	StrStream s("<cstdio>");
-	Token::Stream toks(s);
+	auto toks = init_file("<cstdio>");
 	next_assert(toks, Type::StringSysInclude, "cstdio", true);
 	test_assert(toks.next() == nullptr);
 }
