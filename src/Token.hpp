@@ -2,6 +2,7 @@
 
 #include "Stream.hpp"
 #include "excp.hpp"
+#include "arith.hpp"
 
 namespace Token {
 
@@ -910,6 +911,9 @@ private:
 	size_t m_off;	// bytes read on the file so far, any error will be happening before that offset
 	size_t m_row;
 	bool m_line_escaped;
+	static inline constexpr size_t stack_size = 256;
+	char m_stack_base[stack_size];
+	char *m_stack;
 
 	inline bool skip_blank(void)
 	{
@@ -938,7 +942,7 @@ private:
 					throw;
 				}
 			}
-			m_res[-1] = m_i - m_res;
+			m_res[-1] = static_cast<uint8_t>(m_i - m_res);
 			m_res[-2] = static_cast<char>(type) & 0x07;
 			return m_res - 2;
 		}
@@ -947,6 +951,8 @@ private:
 public:
 	inline Stream(void)
 	{
+		m_buf = m_buf_raw + 2 + max_token_size;
+		m_stack = m_stack_base;
 	}
 
 	char* next(void);
@@ -984,25 +990,64 @@ public:
 		return m_line_escaped;
 	}
 
-	inline void push(const char *filepath)
+	inline void reset_buf(void)
 	{
-		m_buf = m_buf_raw + 2 + max_token_size;
 		m_i = m_buf;
 		*m_i = Char::eob;
 		m_buf[buf_size] = Char::buf_overflow;
-		m_off = 0;
-		m_row = 0;
 		m_line_escaped = false;
+	}
+
+public:
+	inline void push(const char *filepath)
+	{
+		if (m_stack > m_stack_base) {	// if stack isn't empty
+			if (m_stack + 5 >= m_stack_base + stack_size) {
+				m_error = "File stack overflow";
+				throw;
+			}
+			m_stack += store_part<3>(m_stack, m_off);
+			m_stack += store_part<2>(m_stack, m_row);
+		}
+		{
+			auto size = static_cast<uint8_t>(2) + static_cast<uint8_t>(filepath[1]);
+			if (m_stack + size + 1 >= m_stack_base + stack_size) {
+				m_error = "File stack overflow";
+				throw;
+			}
+			auto cf = filepath;
+			for (uint8_t i = 0; i < size; i++)
+				*m_stack++ = *cf++;
+			*m_stack++ = size;
+		}
 
 		if (!m_stream.open(filepath)) {
 			m_error = filepath;
 			throw;
 		}
+		reset_buf();
+		m_off = 0;
+		m_row = 0;
 	}
 
 	inline bool pop(void)
 	{
-		return false;
+		m_stack -= 1 + m_stack[-1];
+		if (m_stack == m_stack_base)
+			return false;
+
+		reset_buf();
+		m_stack -= 2;
+		m_row = load_part<2, size_t>(m_stack);
+		m_stack -= 3;
+		m_off = load_part<3, size_t>(m_stack);
+		auto filepath = m_stack - 1 - m_stack[-1];
+		if (!m_stream.open(filepath)) {
+			m_error = filepath;
+			throw;
+		}
+		m_stream.seek(m_off);
+		return true;
 	}
 };
 

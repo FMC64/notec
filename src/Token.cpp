@@ -61,7 +61,7 @@ bool Stream::adv_str(char delim, Type type)
 	m_res = m_buf_raw + 2;
 	char *filler = m_res;	// Optmization: overengineered on short strings ? See whether extra code is worth less cycles
 	fill_str<0>(delim, filler);
-	m_res[-1] = filler - m_res;
+	m_res[-1] = static_cast<uint8_t>(filler - m_res);
 	m_res[-2] = static_cast<char>(type);
 	m_res -= 2;
 	m_i++;

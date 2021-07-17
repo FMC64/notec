@@ -5,11 +5,17 @@
 
 using namespace Token;
 
+const char dummy_name[] = {
+	static_cast<char>(Type::StringLiteral),
+	1,
+	'f'
+};
+
 static Token::Stream init_file(const char *src)
 {
 	auto res = Token::Stream();
 	res.get_stream().set_file_data(src);
-	res.push("");
+	res.push(dummy_name);
 	return res;
 }
 
@@ -17,7 +23,7 @@ static Token::Stream init_file(StrStream::Buffer &&buf)
 {
 	auto res = Token::Stream();
 	res.get_stream().set_file_data(static_cast<StrStream::Buffer&&>(buf));
-	res.push("");
+	res.push(dummy_name);
 	return res;
 }
 
@@ -238,4 +244,22 @@ test_case(token_18)
 	auto toks = init_file("<cstdio>");
 	next_assert(toks, Type::StringSysInclude, "cstdio", true);
 	test_assert(toks.next() == nullptr);
+}
+
+test_case(token_19)
+{
+	auto res = Token::Stream();
+	res.push(dummy_name);
+	test_assert(!res.pop());
+}
+
+test_case(token_20)
+{
+	auto res = Token::Stream();
+	res.push(dummy_name);
+	res.push(dummy_name);
+	res.push(dummy_name);
+	test_assert(res.pop());
+	test_assert(res.pop());
+	test_assert(!res.pop());
 }

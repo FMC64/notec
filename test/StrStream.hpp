@@ -56,6 +56,11 @@ public:
 		return true;
 	}
 
+	void seek(size_t ndx)
+	{
+		m_ndx = ndx;
+	}
+
 	// custom test methods
 	void set_file_data(const char *str)
 	{
