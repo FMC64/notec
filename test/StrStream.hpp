@@ -51,6 +51,8 @@ public:
 			delete[] m_entries[i].data;
 		}
 		delete[] m_entries;
+		m_entry_count = 0;
+		m_entries = nullptr;
 	}
 
 	size_t read(char *buf, size_t size)
@@ -99,7 +101,11 @@ public:
 
 	void close(void)
 	{
-		m_buf.~Buffer();
+		if (m_buf.data != nullptr) {
+			delete[] m_buf.data;
+			m_buf.data = nullptr;
+			m_buf.size = 0;
+		}
 	}
 
 	// custom test methods
