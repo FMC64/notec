@@ -2,10 +2,9 @@
 
 #include <cstring>
 
-#include "Stream.hpp"
 #include "arith.hpp"
 
-class StrStream : public Stream
+class StrStream
 {
 	size_t m_ndx = 0;
 
@@ -58,7 +57,7 @@ public:
 	{
 	}
 
-	size_t read(char *buf, size_t size) override
+	size_t read(char *buf, size_t size)
 	{
 		if (m_ndx >= m_buf.size)
 			return 0;
@@ -68,8 +67,10 @@ public:
 		return to_read;
 	}
 
-	bool eof(void) const override
+	bool eof(void) const
 	{
 		return m_ndx >= m_buf.size;
 	}
 };
+
+using Stream = StrStream;
