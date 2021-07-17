@@ -125,6 +125,7 @@ namespace Char {
 	}
 
 	static inline constexpr char eob = 0x7F;
+	static inline constexpr char buf_overflow = 0x80;
 
 	template <size_t Size>
 	struct Table
@@ -798,7 +799,7 @@ class Stream
 	{
 		if (*m_i == Char::eob) {
 			if (filler >= m_buf) {
-				m_error = "Max string size is 255";
+				m_error = "Max string size is 96";
 				throw;
 			}
 			feed_buf();
@@ -826,7 +827,7 @@ class Stream
 		while (*m_i != delim) {
 			if (*m_i == Char::eob) {
 				if constexpr (Deep > 0) {
-					m_error = "Max string size is 255";
+					m_error = "Max string size is 96";
 					throw;
 				} else {
 					if (!require_neob(filler))
@@ -886,6 +887,7 @@ class Stream
 	inline size_t feed_buf(void)
 	{
 		auto r = m_stream.read(m_buf, buf_size);
+		m_buf[buf_size] = Char::buf_overflow;
 		m_buf[r] = Char::eob;
 		m_off += r;
 		return r;
@@ -894,7 +896,7 @@ class Stream
 	char *m_i;
 	char *m_res;
 	::Stream &m_stream;
-	static inline constexpr size_t max_token_size = 255;	// uint8_t bytes
+	static inline constexpr size_t max_token_size = 96;	// keep whole buffer below 256 bytes
 	static inline constexpr size_t buf_size = max_token_size;
 	char m_buf_raw[2 +	// token struct type + size
 		max_token_size + buf_size +
@@ -932,7 +934,7 @@ private:
 				type = static_cast<Type>(static_cast<char>(type) & type_range);
 				adv_i(type);	// type & range is continuous
 				if (*m_i == Char::eob && !m_stream.eof()) {
-					m_error = "Max token size is 255";
+					m_error = "Max token size is 96";
 					throw;
 				}
 			}
@@ -949,6 +951,7 @@ public:
 	{
 		m_i = m_buf;
 		*m_i = Char::eob;
+		m_buf[buf_size] = Char::buf_overflow;
 	}
 
 	char* next(void);
@@ -959,12 +962,16 @@ public:
 		return m_error;
 	}
 
-	inline size_t get_off(void) const	// current byte offset in file, expensive (call only on error/warning)
+	inline size_t get_off(void) const	// current byte offset in file
 	{
-		auto end = m_i;
-		while (*end != Char::eob)
-			end++;
-		return m_off - (end - m_i);
+		if (m_buf[buf_size] == Char::buf_overflow) {	// buffer at end of file, expensive
+			auto end = m_i;
+			while (*end != Char::eob)
+				end++;
+			return m_off - (end - m_i);
+		} else {
+			return m_off - buf_size + (m_i - m_buf);	// file fills whole buffer, trivial
+		}
 	}
 
 	inline size_t get_row(void) const	// human-readable row, to use only for prompt
