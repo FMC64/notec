@@ -1,8 +1,15 @@
-#include "test.hpp"
-#include "StrStream.hpp"
-
 #include <string>
 #include <vector>
+
+#include "StrStream.hpp"
+#include "Token.hpp"
+#include "test.hpp"
+
+const char dummy_name[] = {
+	static_cast<char>(Token::Type::StringLiteral),
+	1,
+	'f'
+};
 
 template <size_t BufSize>
 static std::vector<std::string> set(const char *in)
@@ -11,7 +18,9 @@ static std::vector<std::string> set(const char *in)
 	std::vector<std::string> res;
 
 	StrStream s;
-	s.set_file_data(in);
+	s.set_file_count(1);
+	s.add_file("f", in);
+	test_assert(s.open(dummy_name));
 	while (auto size = s.read(buf, BufSize)) {
 		buf[size] = 0;
 		res.emplace_back(buf);

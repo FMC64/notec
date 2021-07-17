@@ -7,7 +7,7 @@
 
 class StrStream
 {
-	size_t m_ndx = 0;
+	size_t m_ndx;
 
 public:
 	struct Buffer
@@ -83,6 +83,7 @@ public:
 				}
 			if (!match || *n != 0)
 				continue;
+			m_ndx = 0;
 			m_buf.size = e.size;
 			m_buf.data = new char[e.size];
 			std::memcpy(m_buf.data, e.data, e.size);
