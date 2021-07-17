@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstring>
+#include <cstdlib>
 
 #include "arith.hpp"
 
@@ -29,10 +30,27 @@ public:
 
 private:
 	Buffer m_buf;
+	struct Entry
+	{
+		char *name;
+		size_t size;
+		char *data;
+	};
+	size_t m_entry_count = 0;
+	Entry *m_entries = nullptr;
+
 public:
 
 	StrStream(void)
 	{
+	}
+	~StrStream(void)
+	{
+		for (size_t i = 0; i < m_entry_count; i++) {
+			std::free(m_entries[i].name);
+			delete[] m_entries[i].data;
+		}
+		delete[] m_entries;
 	}
 
 	size_t read(char *buf, size_t size)
@@ -52,8 +70,25 @@ public:
 
 	bool open(const char *filepath)
 	{
-		static_cast<void>(filepath);
-		return true;
+		const char *str = &filepath[2];
+		size_t size = static_cast<uint8_t>(filepath[1]);
+		for (size_t i = 0; i < m_entry_count; i++) {
+			auto &e = m_entries[i];
+			auto n = e.name;
+			bool match = true;
+			for (size_t j = 0; j < size; j++)
+				if (str[i] != *n++) {
+					match = false;
+					break;
+				}
+			if (!match || *n != 0)
+				continue;
+			m_buf.size = e.size;
+			m_buf.data = new char[e.size];
+			std::memcpy(m_buf.data, e.data, e.size);
+			return true;
+		}
+		return false;
 	}
 
 	void seek(size_t ndx)
@@ -63,6 +98,7 @@ public:
 
 	void close(void)
 	{
+		m_buf.~Buffer();
 	}
 
 	// custom test methods
@@ -73,10 +109,26 @@ public:
 		std::memcpy(m_buf.data, str, m_buf.size);
 	}
 
-	void set_file_data(Buffer &&buf)
+	void set_file_count(size_t count)
 	{
-		m_buf.size = buf.size;
-		m_buf.data = buf.data;
+		m_entries = new Entry[count];
+	}
+
+	void add_file(const char *path, const char *data)
+	{
+		auto &e = m_entries[m_entry_count++];
+		e.name = strdup(path);
+		e.size = std::strlen(data);
+		e.data = new char[e.size];
+		std::memcpy(e.data, data, e.size);
+	}
+
+	void add_file(const char *path, Buffer &&buf)
+	{
+		auto &e = m_entries[m_entry_count++];
+		e.name = strdup(path);
+		e.size = buf.size;
+		e.data = buf.data;
 		buf.size = 0;
 		buf.data = nullptr;
 	}

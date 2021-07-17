@@ -1001,6 +1001,7 @@ public:
 public:
 	inline void push(const char *filepath)
 	{
+		m_stream.close();
 		if (m_stack > m_stack_base) {	// if stack isn't empty
 			if (m_stack + 5 >= m_stack_base + stack_size) {
 				m_error = "File stack overflow";

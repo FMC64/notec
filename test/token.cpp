@@ -14,7 +14,9 @@ const char dummy_name[] = {
 static Token::Stream init_file(const char *src)
 {
 	auto res = Token::Stream();
-	res.get_stream().set_file_data(src);
+	auto &s = res.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", src);
 	res.push(dummy_name);
 	return res;
 }
@@ -22,7 +24,9 @@ static Token::Stream init_file(const char *src)
 static Token::Stream init_file(StrStream::Buffer &&buf)
 {
 	auto res = Token::Stream();
-	res.get_stream().set_file_data(static_cast<StrStream::Buffer&&>(buf));
+	auto &s = res.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", static_cast<StrStream::Buffer&&>(buf));
 	res.push(dummy_name);
 	return res;
 }
@@ -249,6 +253,9 @@ test_case(token_18)
 test_case(token_19)
 {
 	auto res = Token::Stream();
+	auto &s = res.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "sample tok");
 	res.push(dummy_name);
 	test_assert(!res.pop());
 }
@@ -256,6 +263,9 @@ test_case(token_19)
 test_case(token_20)
 {
 	auto res = Token::Stream();
+	auto &s = res.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "sample tok");
 	res.push(dummy_name);
 	res.push(dummy_name);
 	res.push(dummy_name);
