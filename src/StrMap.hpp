@@ -74,18 +74,29 @@ class BlockGroup
 		}
 	}
 
-	inline bool resolve_u16(const char *str, uint16_t &res)
+	inline bool resolve_u16(const char *str, uint16_t payload_size, uint16_t *res)
 	{
 		auto i = resolve_node(str);
 		auto cur = m_root[i];
 		if (*str == 0 && cur.control & Block::Control::has_payload) {
-			res = *reinterpret_cast<const uint16_t*>(m_root + i + 3);
+			for (uint16_t j = 0; j < payload_size; j++)
+				res[j] = *reinterpret_cast<const uint16_t*>(m_root + i + 3 + j);
 			return true;
 		} else
 			return false;
 	}
 
-	inline bool insert_u16(const char *str, const uint16_t &payload)
+	inline const char* resolve_u8(const char *str)
+	{
+		auto i = resolve_node(str);
+		auto cur = m_root[i];
+		if (*str == 0 && cur.control & Block::Control::has_payload)
+			return reinterpret_cast<const char*>(m_root + i + 3);
+		else
+			return nullptr;
+	}
+
+	inline bool insert_u16(const char *str, uint16_t payload_size, const uint16_t *payload)
 	{
 		bool is_child;
 		auto ind = resolve_node(str, &is_child);
@@ -93,14 +104,13 @@ class BlockGroup
 		if (*str == 0 && cur.control & Block::Control::has_payload)
 			return false;
 
-		constexpr uint16_t payload_size = 1;
-		auto blk_size = [this](uint16_t ndx) -> uint16_t {
+		auto blk_size = [this, payload_size](uint16_t ndx) -> uint16_t {
 			auto cur = m_root[ndx];
 			return (cur.control & Block::Control::next_child_direct ? 1 : 3) +
 			(cur.control & Block::Control::has_payload ? payload_size : 0);
 		};
 		uint16_t entry_size;
-		uint16_t needed = *str == 0 ? 4 : 3;
+		uint16_t needed = 3 + (*str == 0 ? payload_size : 0);
 		if (cur.control & Block::Control::next_child_direct) {	// inline child
 			auto nind = ind + 1;
 			auto nsize = blk_size(nind);
@@ -131,10 +141,10 @@ class BlockGroup
 		// at this point we have at least 3 blocks available at ind but possibly no room for payload
 		if (entry_size < needed) {
 			auto new_c = end();
-			add_blocks(4);
+			add_blocks(3 + payload_size);
 			for (size_t i = 0; i < 3; i++)
 				add_block(m_root[ind + i]);
-			m_count++;
+			m_count += payload_size;
 			m_root[ind].c = 0x7F;	// insert dummy block with current block as next entry
 			m_root[ind].control = Block::Control::has_next_entry;
 			reinterpret_cast<uint16_t&>(m_root[ind + 2]) = new_c;
@@ -159,13 +169,23 @@ class BlockGroup
 			}
 			ind = end() - 1;
 			m_root[ind].control &= ~(Block::Control::has_next_child | Block::Control::next_child_direct);
-			add_blocks(3);
-			m_count += 3;
+			add_blocks(2 + payload_size);
+			m_count += 2 + payload_size;
 		}
 		m_root[ind].control |= Block::Control::has_payload;
-		m_root[ind + 3] = reinterpret_cast<const Block&>(payload);
+		for (uint16_t i = 0; i < payload_size; i++)
+			m_root[ind + 3 + i] = reinterpret_cast<const Block&>(payload[i]);
 
 		return true;
+	}
+
+	template <typename T>
+	static constexpr uint16_t get_payload_size(void)
+	{
+		if (sizeof(T) % 2 == 0)
+			return sizeof(T) / 2;
+		else
+			return sizeof(T) / 2 + 1;
 	}
 
 public:
@@ -185,15 +205,27 @@ public:
 	template <typename T>
 	inline bool resolve(const char *str, T &res)
 	{
-		static_assert(sizeof(T) == sizeof(uint16_t), "T size must be 2");
-		return resolve_u16(str, reinterpret_cast<uint16_t&>(res));
+		if constexpr (sizeof(T) % 2 == 0)
+			return resolve_u16(str, get_payload_size<T>(), &reinterpret_cast<uint16_t&>(res));
+		else {
+			auto c = resolve_u8(str);
+			if (c == nullptr)
+				return false;
+			res = *reinterpret_cast<const T*>(c);
+			return true;
+		}
 	}
 
 	template <typename T>
 	inline bool insert(const char *str, const T &payload)
 	{
-		static_assert(sizeof(T) == sizeof(uint16_t), "T size must be 2");
-		return insert_u16(str, reinterpret_cast<const uint16_t&>(payload));
+		if constexpr (sizeof(T) % 2 == 0)
+			return insert_u16(str, get_payload_size<T>(), &reinterpret_cast<const uint16_t&>(payload));
+		else {
+			uint16_t payload16[get_payload_size<T>()];
+			reinterpret_cast<T&>(*payload16) = payload;
+			return insert_u16(str, get_payload_size<T>(), reinterpret_cast<const uint16_t*>(payload16));
+		}
 	}
 
 private:

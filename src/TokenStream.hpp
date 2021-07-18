@@ -930,7 +930,7 @@ public:
 			m_stack += store_part<2>(m_stack, m_row);
 		}
 		{
-			auto size = static_cast<uint8_t>(2) + static_cast<uint8_t>(filepath[1]);
+			auto size = static_cast<uint8_t>(2) + Token::size(filepath);
 			if (m_stack + size + 1 >= m_stack_base + stack_size) {
 				m_error = "File stack overflow";
 				throw;
@@ -969,6 +969,11 @@ public:
 		}
 		m_stream.seek(m_off);
 		return true;
+	}
+
+	inline const char* cur(void)
+	{
+		return m_stack - (1 + static_cast<uint8_t>(m_stack[-1]));
 	}
 };
 
