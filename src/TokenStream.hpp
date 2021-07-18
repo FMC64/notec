@@ -1,9 +1,10 @@
 #pragma once
 
-#include "excp.hpp"
-#include "arith.hpp"
 #include "Token.hpp"
 #include "Stream.hpp"
+
+#include "arith.hpp"
+#include "excp.hpp"
 
 namespace Token {
 

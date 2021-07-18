@@ -1,5 +1,7 @@
 #pragma once
 
+#include "cint.hpp"
+
 namespace Token {
 
 enum class Type : char {
