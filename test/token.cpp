@@ -145,7 +145,7 @@ test_case(token_7)
 	auto toks = init_file(". . .\n\na");
 	test_assert(toks.get_off() == 0);
 	while (toks.next());
-	test_assert(toks.get_row() == 3);
+	test_assert(toks.get_row() == 2);
 }
 
 test_case(token_8)

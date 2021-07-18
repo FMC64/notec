@@ -899,9 +899,9 @@ public:
 		}
 	}
 
-	inline size_t get_row(void) const	// human-readable row, to use only for prompt
+	inline size_t get_row(void) const
 	{
-		return m_row + 1;
+		return m_row;
 	}
 
 	inline bool get_line_escaped(void) const
@@ -977,9 +977,14 @@ public:
 		return true;
 	}
 
-	inline const char* cur(void)
+	inline const char* get_cur(void)
 	{
 		return m_stack - (1 + static_cast<uint8_t>(m_stack[-1]));
+	}
+
+	inline const char* get_stack(void)	// only to check if stack has been modified or not
+	{
+		return m_stack;
 	}
 };
 

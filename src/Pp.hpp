@@ -46,10 +46,14 @@ private:
 			m_stream.error("Bad token type");
 	}
 
-	inline char* next_token(void)
+	inline char* next_token(bool is_include = false)
 	{
 		while (true) {
-			auto res = m_stream.next();
+			char *res;
+			if (is_include)
+				res = m_stream.next_include();
+			else
+				res = m_stream.next();
 			if (res != nullptr)
 				return res;
 			if (!m_stream.pop())
@@ -57,42 +61,46 @@ private:
 		}
 	}
 
-	inline void include(void)
+	inline bool next_token_dir(char* &res, bool is_include = false)
 	{
-		auto n = next_token();
+		auto lrow = m_stream.get_row();
+		auto lstack = m_stream.get_stack();
+		res = next_token(is_include);
+		if (lrow != m_stream.get_row())
+			if (!m_stream.get_line_escaped() || lstack != m_stream.get_stack())
+				return false;
+		return true;
+	}
+
+	inline char* include(void)
+	{
+		char *n;
+		if (!next_token_dir(n, true))
+			m_stream.error("Expected string");
 		assert_token(n);
 		auto t = Token::type(n);
 		if (t != Token::Type::StringLiteral && t != Token::Type::StringSysInclude)
 			m_stream.error("Expected string");
 		m_stream.push(n);
+		return next();
 	}
 
-	inline void define(void)
+	inline char* define(void)
 	{
+		return next();
 	}
 
-	inline void directive(void)
+	inline char* directive(void)
 	{
 		auto n = next_token();
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
-		void (Pp::*dir)(void);
+		char* (Pp::*dir)(void);
 		if (!m_dirs.resolve(nn, dir))
 			m_stream.error("Unknown directive");
-		(this->*dir)();
+		return (this->*dir)();
 	}
 
 public:
-	inline char* next(void)
-	{
-		while (true) {
-			auto n = next_token();
-			if (n == nullptr)
-				return nullptr;
-			if (Token::is_op(n, Token::Op::Sharp))
-				directive();
-			else
-				return n;
-		}
-	}
+	char* next(void);
 };
