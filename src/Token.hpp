@@ -102,4 +102,24 @@ enum class Op : char {
 	DoubleSharp = 56	// ##
 };
 
+static inline Op op(const char *token)
+{
+	return static_cast<Op>(token[1]);
 }
+
+static inline bool is_op(const char *token, Op op)
+{
+	return type(token) == Type::Operator && Token::op(token) == op;
+}
+
+}
+
+#define token_nter(id, src) char id[Token::size(src) + 1];	\
+	{							\
+		auto size = Token::size(src);			\
+		id[size] = 0;					\
+		auto s = Token::data(src);			\
+		auto d = id;					\
+		for (uint8_t i = 0; i < size; i++)		\
+			*d++ = *s++;				\
+	}

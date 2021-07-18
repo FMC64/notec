@@ -918,6 +918,12 @@ public:
 	}
 
 public:
+	inline void error(const char *str)
+	{
+		m_error = str;
+		throw;
+	}
+
 	inline void push(const char *filepath)
 	{
 		m_stream.close();
@@ -926,7 +932,7 @@ public:
 				m_error = "File stack overflow";
 				throw;
 			}
-			m_stack += store_part<3>(m_stack, m_off);
+			m_stack += store_part<3>(m_stack, get_off());
 			m_stack += store_part<2>(m_stack, m_row);
 		}
 		{

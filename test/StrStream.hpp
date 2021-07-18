@@ -80,7 +80,7 @@ public:
 			auto n = e.name;
 			bool match = true;
 			for (uint8_t j = 0; j < size; j++)
-				if (str[i] != *n++) {
+				if (str[j] != *n++) {
 					match = false;
 					break;
 				}
