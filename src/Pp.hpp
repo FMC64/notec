@@ -17,6 +17,11 @@ public:
 		#undef PP_DIRECTIVE_NEXT
 	}
 
+	inline Token::Stream& get_tstream(void)
+	{
+		return m_stream;
+	}
+
 	inline Stream& get_stream(void)	// call on error and for custom stream modifications before polling (testing only)
 	{
 		return m_stream.get_stream();

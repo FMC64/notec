@@ -1,7 +1,7 @@
 #pragma once
 
 #include "cint.hpp"
-#include <cstdlib>
+#include "clib.hpp"
 
 namespace StrMap {
 
@@ -199,7 +199,7 @@ public:
 	}
 	inline ~BlockGroup(void)
 	{
-		std::free(m_root);
+		free(m_root);
 	}
 
 	template <typename T>
@@ -236,7 +236,7 @@ private:
 			m_allocated *= 2;
 			if (m_allocated < needed)
 				m_allocated = needed;
-			m_root = reinterpret_cast<Block*>(std::realloc(m_root, m_allocated * sizeof(Block)));
+			m_root = reinterpret_cast<Block*>(realloc(m_root, m_allocated * sizeof(Block)));
 		}
 	}
 
