@@ -4,6 +4,7 @@
 #include <cstdlib>
 
 #include "arith.hpp"
+#include "Token.hpp"
 
 class StrStream
 {
@@ -72,13 +73,13 @@ public:
 
 	bool open(const char *filepath)
 	{
-		const char *str = &filepath[2];
-		size_t size = static_cast<uint8_t>(filepath[1]);
+		const char *str = Token::data(filepath);
+		uint8_t size = Token::size(filepath);
 		for (size_t i = 0; i < m_entry_count; i++) {
 			auto &e = m_entries[i];
 			auto n = e.name;
 			bool match = true;
-			for (size_t j = 0; j < size; j++)
+			for (uint8_t j = 0; j < size; j++)
 				if (str[i] != *n++) {
 					match = false;
 					break;

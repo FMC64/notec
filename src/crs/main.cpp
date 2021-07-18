@@ -1,5 +1,5 @@
 #include "cint.hpp"
-#include "Token.hpp"
+#include "TokenStream.hpp"
 #include <fxlib.h>
 
 int main(void)

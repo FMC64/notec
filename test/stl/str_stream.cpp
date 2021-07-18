@@ -2,7 +2,6 @@
 #include <vector>
 
 #include "StrStream.hpp"
-#include "Token.hpp"
 #include "test.hpp"
 
 const char dummy_name[] = {

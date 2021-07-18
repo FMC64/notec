@@ -1,4 +1,4 @@
-#include "Token.hpp"
+#include "TokenStream.hpp"
 
 namespace Token {
 

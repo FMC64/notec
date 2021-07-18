@@ -1,5 +1,5 @@
 #include "StrStream.hpp"
-#include "Token.hpp"
+#include "TokenStream.hpp"
 #include "test.hpp"
 #include <cstdio>
 
