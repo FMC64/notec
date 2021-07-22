@@ -4,15 +4,19 @@
 
 namespace Token {
 
+// order-dependent constants:
+//	- Token::Stream::adv_types
+//	- Pp::TokType
 enum class Type : char {
 	NumberLiteral = 0,
 	Identifier = 1,
-	Operator = 2,
-	StringLiteral = 3,
-	ValueChar8 = 4,
-	StringSysInclude = 5
+	StringLiteral = 2,
+	StringSysInclude = 3,
+	Operator = 4,
+	ValueChar8 = 5
 };
 static inline constexpr char type_range = 0x07;
+static inline constexpr char type_first_constant = static_cast<char>(Type::Operator);
 
 static inline Type type(const char *token)
 {
@@ -22,6 +26,14 @@ static inline Type type(const char *token)
 static inline uint8_t size(const char *token)
 {
 	return static_cast<uint8_t>(token[1]);
+}
+
+static inline uint8_t whole_size(const char *token)
+{
+	if (token[0] < type_first_constant)
+		return 2 + size(token);
+	else
+		return 2;
 }
 
 static inline const char* data(const char *token)

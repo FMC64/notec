@@ -6,6 +6,7 @@
 
 #else
 
+#include "cint.hpp"
 #include <fxlib.h>
 
 #endif

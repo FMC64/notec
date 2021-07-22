@@ -786,14 +786,16 @@ class Stream
 		return true;
 	}
 
+	// g++, can you please support designated initializers??
+	// clang++ does!
 	using adv_t = bool (Stream::*)(void);
 	static inline constexpr adv_t adv_types[] = {
 		&Stream::adv_number_literal,	// 0
 		&Stream::adv_identifier,	// 1
-		&Stream::adv_operator,		// 2
-		&Stream::adv_string_literal,	// 3
-		&Stream::adv_value_char_8,	// 4
-		&Stream::adv_string_sys_include,	// 5
+		&Stream::adv_string_literal,	// 2
+		&Stream::adv_string_sys_include,	// 3
+		&Stream::adv_operator,		// 4
+		&Stream::adv_value_char_8,	// 5
 		nullptr,	// 6
 		nullptr,	// 7
 		&Stream::adv_number_literal_point	// 8
