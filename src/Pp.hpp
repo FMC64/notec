@@ -147,6 +147,7 @@ private:
 						for (uint8_t i = 0; i < size; i++)
 							*arg_top++ = *data++;
 						*arg_top++ = 0;
+						arg_count++;
 						if (!next_token_dir(n) || n == nullptr)
 							m_stream.error("Expected token");
 					} else if (Token::is_op(n, Token::Op::Expand)) {
@@ -161,6 +162,9 @@ private:
 						if (o == Token::Op::Comma) {
 							if (expect_end)
 								m_stream.error("Expected ')'");
+							if (arg_count == 0)
+								m_stream.error("Expected arg before");
+							expect_id = true;
 							continue;
 						} else if (o == Token::Op::RPar)
 							break;
