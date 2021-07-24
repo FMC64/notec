@@ -135,3 +135,17 @@ static inline bool is_op(const char *token, Op op)
 		for (uint8_t i = 0; i < size; i++)		\
 			*d++ = *s++;				\
 	}
+
+// [0] size, [1...size] data
+static inline bool streq(const char *a, const char *b)
+{
+	auto size = static_cast<uint8_t>(a[0]);
+	if (size != static_cast<uint8_t>(b[0]))
+		return false;
+	a++;
+	b++;
+	for (uint8_t i = 0; i < size; i++)
+		if (a[i] != b[i])
+			return false;
+	return true;
+}
