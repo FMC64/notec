@@ -43,7 +43,6 @@ private:
 
 	inline void assert_token_type(const char *token, Token::Type type)
 	{
-		assert_token(token);
 		if (Token::type(token) != type)
 			m_stream.error("Bad token type");
 	}
@@ -76,7 +75,7 @@ private:
 		if (lrow != m_stream.get_row())
 			if (!m_stream.get_line_escaped() || lstack != m_stream.get_stack())
 				return false;
-		return true;
+		return res != nullptr;
 	}
 
 	bool next_token_dir(char* &res);
@@ -112,7 +111,11 @@ private:
 	}
 
 	struct TokType {	// exts
-		static inline constexpr char end = 6;
+		static inline constexpr char arg = 6;	// data: arg ndx, __VA_ARG__ if 0x80
+		static inline constexpr char opt = 7;	// data: arg count
+		static inline constexpr char spat = 8;	// data: spat count (at least 2)
+		static inline constexpr char str = 9;	// no data, following is either arg or opt
+		static inline constexpr char end = 10;	// no data
 	};
 
 	static inline constexpr size_t define_arg_size = 128;
@@ -128,7 +131,7 @@ private:
 		bool suc_ins = m_macros.insert(nn, static_cast<uint16_t>(m_size));
 		auto name_off = m_stream.get_off();
 		alloc(1);
-		if (next_token_dir(n) && n != nullptr) {	// arguments or tokens
+		if (next_token_dir(n)) {	// arguments or tokens
 			char args[define_arg_size];
 			char *arg_top = args;
 			size_t arg_count = 0;
@@ -137,7 +140,7 @@ private:
 				bool expect_id = false;
 				bool expect_end = false;
 				while (true) {
-					if (!next_token_dir(n) || n == nullptr)
+					if (!next_token_dir(n))
 						m_stream.error("Expected token");
 					if (Token::type(n) == Token::Type::Identifier) {
 						auto size = Token::size(n);
@@ -148,12 +151,12 @@ private:
 							*arg_top++ = *data++;
 						*arg_top++ = 0;
 						arg_count++;
-						if (!next_token_dir(n) || n == nullptr)
+						if (!next_token_dir(n))
 							m_stream.error("Expected token");
 					} else if (Token::is_op(n, Token::Op::Expand)) {
 						has_va = true;
 						expect_end = true;
-						if (!next_token_dir(n) || n == nullptr)
+						if (!next_token_dir(n))
 							m_stream.error("Expected token");
 					} else if (expect_id)
 						m_stream.error("Expected token");
@@ -175,7 +178,7 @@ private:
 					arg_count = 1;
 			}
 			m_buffer[m_size++] = arg_count | (has_va ? 0x80 : 0);
-			while (next_token_dir(n) && n != nullptr) {
+			while (next_token_dir(n)) {
 				auto size = Token::whole_size(n);
 				alloc(size);
 				for (size_t i = 0; i < size; i++)
@@ -204,6 +207,7 @@ private:
 	inline char* directive(void)
 	{
 		auto n = next_token();
+		assert_token(n);
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		char* (Pp::*dir)(void);
