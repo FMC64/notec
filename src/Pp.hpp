@@ -48,11 +48,12 @@ private:
 			m_stream.error("Bad token type");
 	}
 
-	inline char* next_token(bool is_include = false)
+	template <bool IsInclude = false>
+	inline char* _next_token(void)
 	{
 		while (true) {
 			char *res;
-			if (is_include)
+			if constexpr (IsInclude)
 				res = m_stream.next_include();
 			else
 				res = m_stream.next();
@@ -63,21 +64,28 @@ private:
 		}
 	}
 
-	inline bool next_token_dir(char* &res, bool is_include = false)
+	char* next_token(void);
+	char* next_token_include(void);
+
+	template <bool IsInclude = false>
+	inline bool _next_token_dir(char* &res)
 	{
 		auto lrow = m_stream.get_row();
 		auto lstack = m_stream.get_stack();
-		res = next_token(is_include);
+		res = _next_token<IsInclude>();
 		if (lrow != m_stream.get_row())
 			if (!m_stream.get_line_escaped() || lstack != m_stream.get_stack())
 				return false;
 		return true;
 	}
 
+	bool next_token_dir(char* &res);
+	bool next_token_dir_include(char* &res);
+
 	inline char* include(void)
 	{
 		char *n;
-		if (!next_token_dir(n, true))
+		if (!next_token_dir_include(n))
 			m_stream.error("Expected string");
 		assert_token(n);
 		auto t = Token::type(n);
@@ -107,7 +115,7 @@ private:
 		static inline constexpr char end = 6;
 	};
 
-	static inline constexpr size_t define_arg_size = 256;
+	static inline constexpr size_t define_arg_size = 128;
 
 	inline char* define(void)
 	{
@@ -126,6 +134,41 @@ private:
 			size_t arg_count = 0;
 			bool has_va = false;
 			if (m_stream.get_off() == name_off + 1 && Token::is_op(n, Token::Op::LPar)) {	// has args first
+				bool expect_id = false;
+				bool expect_end = false;
+				while (true) {
+					if (!next_token_dir(n) || n == nullptr)
+						m_stream.error("Expected token");
+					if (Token::type(n) == Token::Type::Identifier) {
+						auto size = Token::size(n);
+						if (arg_top + size + 1 >= args + define_arg_size)
+							m_stream.error("Argument overflow");
+						auto data = Token::data(n);
+						for (uint8_t i = 0; i < size; i++)
+							*arg_top++ = *data++;
+						*arg_top++ = 0;
+						if (!next_token_dir(n) || n == nullptr)
+							m_stream.error("Expected token");
+					} else if (Token::is_op(n, Token::Op::Expand)) {
+						has_va = true;
+						expect_end = true;
+						if (!next_token_dir(n) || n == nullptr)
+							m_stream.error("Expected token");
+					} else if (expect_id)
+						m_stream.error("Expected token");
+					if (Token::type(n) == Token::Type::Operator) {
+						auto o = Token::op(n);
+						if (o == Token::Op::Comma) {
+							if (expect_end)
+								m_stream.error("Expected ')'");
+							continue;
+						} else if (o == Token::Op::RPar)
+							break;
+					}
+					m_stream.error("Expected ',' or ')'");
+				}
+				if (arg_count == 0)	// one unamed argument at beginning
+					arg_count = 1;
 			}
 			m_buffer[m_size++] = arg_count | (has_va ? 0x80 : 0);
 			while (next_token_dir(n) && n != nullptr) {
