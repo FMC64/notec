@@ -65,3 +65,14 @@ test_case(pp_2)
 	next_assert(p, Token::Type::Identifier, "b");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_3)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define a b c d\n#define a b c d\ne");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
