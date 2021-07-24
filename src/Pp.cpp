@@ -37,7 +37,7 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 				m_stream.error("Non-variadic macro");
 			alloc(2);
 			m_buffer[m_size++] = TokType::opt;
-			auto &count = reinterpret_cast<uint8_t&>(m_buffer[m_size++]);
+			auto count = m_size++;
 			if (!next_token_dir(n))
 				m_stream.error("Expected token");
 			if (!Token::is_op(n, Token::Op::LPar))
@@ -51,15 +51,16 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 				c++;
 				define_add_token(n, has_va, args, arg_top);
 			}
-			count = c;
+			reinterpret_cast<uint8_t&>(m_buffer[count]) = c;
 			return;
 		}
+		auto s = Token::size(n);
 		auto data = Token::data(n);
 		auto cur = args;
 		uint8_t ndx = 0;
 		while (cur < arg_top) {
 			bool match = true;
-			for (uint8_t i = 0; i < size; i++) {
+			for (uint8_t i = 0; i < s; i++) {
 				if (data[i] != *cur) {
 					match = false;
 					break;
@@ -76,6 +77,18 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 				cur++;
 			cur++;
 			ndx++;
+		}
+	} else if (Token::type(n) == Token::Type::Operator) {
+		if (Token::op(n) == Token::Op::Sharp) {
+			alloc(1);
+			m_buffer[m_size++] = TokType::str;
+			auto strd = m_size;
+			if (!next_token_dir(n))
+				m_stream.error("Expected token");
+			define_add_token(n, has_va, args, arg_top);
+			if (m_buffer[strd] != TokType::arg && m_buffer[strd] != TokType::opt)
+				m_stream.error("Can only convert arguments or opt");
+			return;
 		}
 	}
 	alloc(size);

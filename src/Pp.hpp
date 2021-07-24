@@ -18,6 +18,10 @@ public:
 		PP_DIRECTIVE_NEXT(define);
 		#undef PP_DIRECTIVE_NEXT
 	}
+	inline ~Pp(void)
+	{
+		free(m_buffer);
+	}
 
 	inline Token::Stream& get_tstream(void)
 	{
