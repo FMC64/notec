@@ -110,13 +110,13 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 		} else if (o == Token::Op::DoubleSharp) {
 			if (last == static_cast<size_t>(-1))
 				m_stream.error("Expected token on left");
+			alloc(2);
 			n = m_buffer + last;
 			if (!define_is_tok_spattable(n))
 				m_stream.error("Left token non-spattable");
 			auto size = Token::whole_size(n);
-			alloc(2);
 			m_size += 2;
-			auto bo = m_size - 1 - size - 1;
+			auto bo = m_size - 1;
 			for (size_t i = 0; i < size; i++)
 				m_buffer[bo - i] = m_buffer[bo - i - 2];
 			n[0] = TokType::spat;
