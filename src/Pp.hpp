@@ -126,7 +126,7 @@ private:
 	static inline constexpr const char* va_args = "\xB__VA_ARGS__";
 	static inline constexpr const char* va_opt = "\xA__VA_OPT__";
 
-	void define_add_token(char *n, bool has_va, const char *args, const char *arg_top);
+	void define_add_token(char *n, bool has_va, const char *args, const char *arg_top, size_t last);
 
 	inline char* define(void)
 	{
@@ -186,8 +186,12 @@ private:
 					arg_count = 1;
 			}
 			m_buffer[m_size++] = arg_count | (has_va ? 0x80 : 0);
-			while (next_token_dir(n))
-				define_add_token(n, has_va, args, arg_top);
+			size_t last = -1;
+			while (next_token_dir(n)) {
+				auto cur = m_size;
+				define_add_token(n, has_va, args, arg_top, last);
+				last = cur;
+			}
 		} else {	// zero token macro
 			m_buffer[m_size++] = 0;	// zero args
 			n = next_token();

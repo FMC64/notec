@@ -20,7 +20,7 @@ bool Pp::next_token_dir_include(char* &res)
 	return _next_token_dir<true>(res);
 }
 
-void Pp::define_add_token(char *n, bool has_va, const char *args, const char *arg_top)
+void Pp::define_add_token(char *n, bool has_va, const char *args, const char *arg_top, size_t last)
 {
 	auto size = Token::whole_size(n);
 	if (Token::type(n) == Token::Type::Identifier) {
@@ -42,14 +42,26 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 				m_stream.error("Expected token");
 			if (!Token::is_op(n, Token::Op::LPar))
 				m_stream.error("Expected '('");
+			size_t deep = 1;
 			uint8_t c = 0;
+			size_t last = -1;
 			while (true) {
 				if (!next_token_dir(n))
 					m_stream.error("Expected token");
-				if (Token::is_op(n, Token::Op::RPar))
-					break;
+				if (Token::type(n) == Token::Type::Operator) {
+					auto o = Token::op(n);
+					if (o == Token::Op::LPar)
+						deep++;
+					else if (o == Token::Op::RPar) {
+						deep--;
+						if (deep == 0)
+							break;
+					}
+				}
 				c++;
-				define_add_token(n, has_va, args, arg_top);
+				auto cur = m_size;
+				define_add_token(n, has_va, args, arg_top, last);
+				last = cur;
 			}
 			reinterpret_cast<uint8_t&>(m_buffer[count]) = c;
 			return;
@@ -85,7 +97,7 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 			auto strd = m_size;
 			if (!next_token_dir(n))
 				m_stream.error("Expected token");
-			define_add_token(n, has_va, args, arg_top);
+			define_add_token(n, has_va, args, arg_top, -1);
 			if (m_buffer[strd] != TokType::arg && m_buffer[strd] != TokType::opt)
 				m_stream.error("Can only convert arguments or opt");
 			return;
