@@ -126,7 +126,18 @@ private:
 	static inline constexpr const char* va_args = "\xB__VA_ARGS__";
 	static inline constexpr const char* va_opt = "\xA__VA_OPT__";
 
-	void define_add_token(char *n, bool has_va, const char *args, const char *arg_top, size_t last);
+	enum class TokPoll : char {
+		Do = 0,
+		Dont = 1,
+		End = 2
+	};
+	TokPoll define_add_token(char *&n, bool has_va, const char *args, const char *arg_top, size_t last);
+
+	inline bool define_is_tok_spattable(char *token)
+	{
+		auto t = Token::type(token);
+		return t == Token::Type::Identifier || t == static_cast<Token::Type>(TokType::arg) || t == static_cast<Token::Type>(TokType::opt);
+	}
 
 	inline char* define(void)
 	{
@@ -187,11 +198,17 @@ private:
 			}
 			m_buffer[m_size++] = arg_count | (has_va ? 0x80 : 0);
 			size_t last = -1;
-			while (next_token_dir(n)) {
-				auto cur = m_size;
-				define_add_token(n, has_va, args, arg_top, last);
-				last = cur;
-			}
+			if (next_token_dir(n))
+				while (true) {
+					auto cur = m_size;
+					auto p = define_add_token(n, has_va, args, arg_top, last);
+					if (p == TokPoll::End)
+						break;
+					if (p == TokPoll::Do)
+						if (!next_token_dir(n))
+							break;
+					last = cur;
+				}
 		} else {	// zero token macro
 			m_buffer[m_size++] = 0;	// zero args
 			n = next_token();

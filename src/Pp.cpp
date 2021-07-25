@@ -20,7 +20,7 @@ bool Pp::next_token_dir_include(char* &res)
 	return _next_token_dir<true>(res);
 }
 
-void Pp::define_add_token(char *n, bool has_va, const char *args, const char *arg_top, size_t last)
+Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const char *arg_top, size_t last)
 {
 	auto size = Token::whole_size(n);
 	if (Token::type(n) == Token::Type::Identifier) {
@@ -30,7 +30,7 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 			alloc(2);
 			m_buffer[m_size++] = TokType::arg;
 			m_buffer[m_size++] = 0x80;
-			return;
+			return TokPoll::Do;
 		}
 		if (streq(n + 1, va_opt)) {
 			if (!has_va)
@@ -45,9 +45,9 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 			size_t deep = 1;
 			uint8_t c = 0;
 			size_t last = -1;
+			if (!next_token_dir(n))
+				m_stream.error("Expected token");
 			while (true) {
-				if (!next_token_dir(n))
-					m_stream.error("Expected token");
 				if (Token::type(n) == Token::Type::Operator) {
 					auto o = Token::op(n);
 					if (o == Token::Op::LPar)
@@ -60,11 +60,16 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 				}
 				c++;
 				auto cur = m_size;
-				define_add_token(n, has_va, args, arg_top, last);
+				auto p = define_add_token(n, has_va, args, arg_top, last);
+				if (p == TokPoll::End)
+					m_stream.error("Expected token");
+				if (p == TokPoll::Do)
+					if (!next_token_dir(n))
+						m_stream.error("Expected token");
 				last = cur;
 			}
 			reinterpret_cast<uint8_t&>(m_buffer[count]) = c;
-			return;
+			return TokPoll::Do;
 		}
 		auto s = Token::size(n);
 		auto data = Token::data(n);
@@ -83,7 +88,7 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 				alloc(2);
 				m_buffer[m_size++] = TokType::arg;
 				m_buffer[m_size++] = ndx;
-				return;
+				return TokPoll::Do;
 			}
 			while (*cur != 0)
 				cur++;
@@ -91,7 +96,8 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 			ndx++;
 		}
 	} else if (Token::type(n) == Token::Type::Operator) {
-		if (Token::op(n) == Token::Op::Sharp) {
+		auto o = Token::op(n);
+		if (o == Token::Op::Sharp) {
 			alloc(1);
 			m_buffer[m_size++] = TokType::str;
 			auto strd = m_size;
@@ -100,12 +106,47 @@ void Pp::define_add_token(char *n, bool has_va, const char *args, const char *ar
 			define_add_token(n, has_va, args, arg_top, -1);
 			if (m_buffer[strd] != TokType::arg && m_buffer[strd] != TokType::opt)
 				m_stream.error("Can only convert arguments or opt");
-			return;
+			return TokPoll::Do;
+		} else if (o == Token::Op::DoubleSharp) {
+			if (last == static_cast<size_t>(-1))
+				m_stream.error("Expected token on left");
+			n = m_buffer + last;
+			if (!define_is_tok_spattable(n))
+				m_stream.error("Left token non-spattable");
+			auto size = Token::whole_size(n);
+			alloc(2);
+			m_size += 2;
+			auto bo = m_size - 1 - size - 1;
+			for (size_t i = 0; i < size; i++)
+				m_buffer[bo - i] = m_buffer[bo - i - 2];
+			n[0] = TokType::spat;
+			uint8_t count = 1;
+			TokPoll res;
+			while (true) {
+				if (!next_token_dir(n))
+					m_stream.error("Expected token");
+				auto cur = m_size;
+				define_add_token(n, has_va, args, arg_top, -1);
+				if (!define_is_tok_spattable(m_buffer + cur))
+					m_stream.error("Token non-spattable");
+				count++;
+				if (!next_token_dir(n)) {
+					res = TokPoll::End;
+					break;
+				}
+				if (!Token::is_op(n, Token::Op::DoubleSharp)) {
+					res = TokPoll::Dont;
+					break;
+				}
+			}
+			m_buffer[last + 1] = count;
+			return res;
 		}
 	}
 	alloc(size);
 	for (size_t i = 0; i < size; i++)
 		m_buffer[m_size++] = n[i];
+	return TokPoll::Do;
 }
 
 char* Pp::next(void)
