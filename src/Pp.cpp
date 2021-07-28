@@ -157,14 +157,14 @@ const char* Pp::next(void)
 			while (true) {
 				auto s = load<uint16_t>(m_stack - 2);
 				if (stack_poll(m_stack - s, n)) {
-					if (n == nullptr)
+					if (n == nullptr) {
 						m_stack -= s;
-					else
+						if (m_stack <= m_stack_base) {
+							n = next_token();
+							break;
+						}
+					} else
 						break;
-				}
-				if (m_stack <= m_stack_base) {
-					n = next_token();
-					break;
 				}
 			}
 		} else
