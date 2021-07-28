@@ -116,7 +116,7 @@ private:
 	}
 
 	struct TokType {	// exts
-		static inline constexpr char arg = 6;	// data: arg ndx, __VA_ARGS__ if 0x80
+		static inline constexpr char arg = 6;	// data: arg ndx, __VA_ARGS__ is encoded as one extra arg (ndx arg_count)
 		static inline constexpr char opt = 7;	// data: arg count
 		static inline constexpr char spat = 8;	// data: spat count (at least 2)
 		static inline constexpr char str = 9;	// no data, following is either arg or opt
@@ -132,7 +132,7 @@ private:
 		Dont = 1,
 		End = 2
 	};
-	TokPoll define_add_token(char *&n, bool has_va, const char *args, const char *arg_top, size_t last);
+	TokPoll define_add_token(char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last);
 
 	inline bool define_is_tok_spattable(char *token)
 	{
@@ -204,7 +204,7 @@ private:
 			if (is_dir_cont)
 				while (true) {
 					auto cur = m_size;
-					auto p = define_add_token(n, has_va, args, arg_top, last);
+					auto p = define_add_token(n, has_va, arg_count, args, arg_top, last);
 					if (p == TokPoll::End)
 						break;
 					if (p == TokPoll::Do)
@@ -258,9 +258,25 @@ private:
 	{
 		auto off = load<uint16_t>(entry);
 		auto n = m_buffer + off;
-		if (*n == TokType::end) {
+		auto t = *n;
+		if (t == TokType::end) {
 			res = nullptr;
 			return true;
+		} else if (t == TokType::arg) {
+			store(entry, static_cast<uint16_t>(off + 2));
+			auto m = static_cast<uint8_t>(n[1]);
+			auto n = entry + 3;
+			for (uint8_t i = 0; i < m; i++) {
+				while (*n != TokType::end)
+					n += Token::whole_size(n);
+				n++;
+			}
+			if (m_stack + 5 > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*m_stack++ = StackFrameType::arg;
+			m_stack += store(m_stack, static_cast<uint16_t>(n - m_stack_base));
+			m_stack += store(m_stack, static_cast<uint16_t>(5));
+			return false;
 		}
 		auto s = Token::whole_size(n);
 		store(entry, static_cast<uint16_t>(off + s));
@@ -282,7 +298,7 @@ private:
 	inline bool arg(char *entry, const char *&res)
 	{
 		auto off = load<uint16_t>(entry);
-		auto n = m_stack + off;
+		auto n = m_stack_base + off;
 		if (*n == TokType::end) {
 			res = nullptr;
 			return true;

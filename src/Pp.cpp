@@ -20,7 +20,7 @@ bool Pp::next_token_dir_include(char* &res)
 	return _next_token_dir<true>(res);
 }
 
-Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const char *arg_top, size_t last)
+Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last)
 {
 	auto size = Token::whole_size(n);
 	if (Token::type(n) == Token::Type::Identifier) {
@@ -29,7 +29,7 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 				m_stream.error("Non-variadic macro");
 			alloc(2);
 			m_buffer[m_size++] = TokType::arg;
-			m_buffer[m_size++] = 0x80;
+			m_buffer[m_size++] = arg_count;
 			return TokPoll::Do;
 		}
 		if (streq(n + 1, va_opt)) {
@@ -60,7 +60,7 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 				}
 				c++;
 				auto cur = m_size;
-				auto p = define_add_token(n, has_va, args, arg_top, last);
+				auto p = define_add_token(n, has_va, arg_count, args, arg_top, last);
 				if (p == TokPoll::End)
 					m_stream.error("Expected token");
 				if (p == TokPoll::Do)
@@ -103,7 +103,7 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 			auto strd = m_size;
 			if (!next_token_dir(n))
 				m_stream.error("Expected token");
-			define_add_token(n, has_va, args, arg_top, -1);
+			define_add_token(n, has_va, arg_count, args, arg_top, -1);
 			if (m_buffer[strd] != TokType::arg && m_buffer[strd] != TokType::opt)
 				m_stream.error("Can only convert arguments or opt");
 			return TokPoll::Do;
@@ -126,7 +126,7 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 				if (!next_token_dir(n))
 					m_stream.error("Expected token");
 				auto cur = m_size;
-				define_add_token(n, has_va, args, arg_top, -1);
+				define_add_token(n, has_va, arg_count, args, arg_top, -1);
 				if (!define_is_tok_spattable(m_buffer + cur))
 					m_stream.error("Token non-spattable");
 				count++;
@@ -184,7 +184,7 @@ const char* Pp::next(void)
 								m_stream.error("Macro stack overflow");
 							*m_stack++ = StackFrameType::macro;
 							m_stack += store(m_stack, static_cast<uint16_t>(ndx + 1));
-							*m_stack++ = 0;
+							m_stack++;	// undef, will not have any opt
 							m_stack += store(m_stack, static_cast<uint16_t>(6));
 							goto pushed;
 						} else {
@@ -198,9 +198,9 @@ const char* Pp::next(void)
 								char *stack = stack_base;
 								*stack++ = StackFrameType::macro;
 								stack += store(stack, static_cast<uint16_t>(ndx + 1));	// first token is right after arg count
+								auto va_empty = stack++;
 								auto has_va = static_cast<bool>(m_buffer[ndx] & 0x80);
 								auto acount = static_cast<uint8_t>(m_buffer[ndx] & ~0x80);
-								*stack++ = acount;
 								size_t depth = 1;
 								size_t count = 1;
 								while (true) {
@@ -231,22 +231,25 @@ const char* Pp::next(void)
 												continue;
 											}
 										}
-										auto size = Token::whole_size(n);
-										if (stack + size > stack_base + stack_size)
-											m_stream.error("Macro stack overflow");
-										for (uint8_t i = 0; i < size; i++)
-											*m_stack++ = *n++;
 									}
+									auto size = Token::whole_size(n);
+									if (stack + size > stack_base + stack_size)
+										m_stream.error("Macro stack overflow");
+									for (uint8_t i = 0; i < size; i++)
+										*stack++ = *n++;
 								}
 								if (stack + 1 > stack_base + stack_size)
 									m_stream.error("Macro stack overflow");
 								*stack++ = TokType::end;
 								if (has_va) {
-									if (stack + 1 > stack_base + stack_size)
-										m_stream.error("Macro stack overflow");
-									*stack++ = TokType::end;
 									if (count < acount)
 										m_stream.error("Not enough args for variadic invocation");
+									*va_empty = count == acount;
+									if (*va_empty) {
+										if (stack + 1 > stack_base + stack_size)
+											m_stream.error("Macro stack overflow");
+										*stack++ = TokType::end;
+									}
 								} else
 									if (count != acount)
 										m_stream.error("Wrong macro argument count");
@@ -254,7 +257,7 @@ const char* Pp::next(void)
 									m_stream.error("Macro stack overflow");
 								stack += store(stack, static_cast<uint16_t>(stack - stack_base + 2));
 								auto ssize = static_cast<size_t>(stack - stack_base);
-								if (stack + ssize > m_stack + stack_size)
+								if (m_stack + ssize > m_stack_base + stack_size)
 									m_stream.error("Macro stack overflow");
 								for (size_t i = 0; i < ssize; i++)
 									*m_stack++ = stack_base[i];
