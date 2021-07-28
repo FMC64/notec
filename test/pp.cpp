@@ -11,7 +11,7 @@ const char dummy_name[] = {
 
 static void next_assert(Pp &p, Type exp_type, const char *exp)
 {
-	char *n = p.next();
+	auto n = p.next();
 	if (n == nullptr)
 		throw "Expected token, got nothing";
 	test_assert(static_cast<Type>(n[0]) == exp_type);

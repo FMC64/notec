@@ -17,6 +17,7 @@ public:
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
 		#undef PP_DIRECTIVE_NEXT
+		m_stack = m_stack_base;
 	}
 	inline ~Pp(void)
 	{
@@ -85,7 +86,7 @@ private:
 	bool next_token_dir(char* &res);
 	bool next_token_dir_include(char* &res);
 
-	inline char* include(void)
+	inline const char* include(void)
 	{
 		char *n;
 		if (!next_token_dir_include(n))
@@ -139,7 +140,7 @@ private:
 		return t == Token::Type::Identifier || t == static_cast<Token::Type>(TokType::arg) || t == static_cast<Token::Type>(TokType::opt);
 	}
 
-	inline char* define(void)
+	inline const char* define(void)
 	{
 		char *n;
 		if (!next_token_dir(n))
@@ -193,8 +194,8 @@ private:
 					}
 					m_stream.error("Expected ',' or ')'");
 				}
-				if (arg_count == 0)	// one unamed argument at beginning
-					arg_count = 1;
+				if (arg_count == 0 && !has_va)	// one unamed argument at beginning
+					arg_count = 1;	// no first argument is indistiguishable from empty first arg
 			}
 			m_buffer[m_size++] = arg_count | (has_va ? 0x80 : 0);
 			size_t last = -1;
@@ -229,18 +230,28 @@ private:
 		return n;
 	}
 
-	inline char* directive(void)
+	inline const char* directive(void)
 	{
 		auto n = next_token();
 		assert_token(n);
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
-		char* (Pp::*dir)(void);
+		const char* (Pp::*dir)(void);
 		if (!m_dirs.resolve(nn, dir))
 			m_stream.error("Unknown directive");
 		return (this->*dir)();
 	}
 
+	static inline constexpr size_t stack_size = 256;
+	char m_stack_base[stack_size];
+	char *m_stack;
+
+	struct StackFrameType {
+		static inline constexpr uint8_t macro = 0;
+		static inline constexpr uint8_t tok = 1;
+		static inline constexpr uint8_t arg = 2;
+	};
+
 public:
-	char* next(void);
+	const char* next(void);
 };

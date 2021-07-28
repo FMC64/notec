@@ -149,17 +149,120 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 	return TokPoll::Do;
 }
 
-char* Pp::next(void)
+const char* Pp::next(void)
 {
 	while (true) {
-		auto n = next_token();
+		// token polling from file, only if stack is empty
+		const char *n = next_token();
 		while (true) {
 			if (n == nullptr)
 				return nullptr;
 			if (Token::is_op(n, Token::Op::Sharp))
 				n = directive();
-			else
+			else {	// substitution
+				if (Token::type(n) == Token::Type::Identifier) {
+					token_nter(nn, n);
+					uint16_t ndx;
+					if (m_macros.resolve(nn, ndx)) {
+						if (m_buffer[ndx] == 0) {	// simple macro substitution, no args needed
+							if (m_stack + 6 > m_stack_base + stack_size)
+								m_stream.error("Macro stack overflow");
+							*m_stack++ = StackFrameType::macro;
+							m_stack += store(m_stack, ndx);
+							*m_stack++ = 0;
+							m_stack += store(m_stack, static_cast<uint16_t>(6));
+							goto pushed;
+						} else {
+							auto size = Token::whole_size(n);
+							char nc[size];
+							for (uint8_t i = 0; i < size; i++)	// save macro name
+								nc[i] = n[i];
+							n = next();
+							if (n != nullptr && Token::is_op(n, Token::Op::LPar)) {	// call initiated, arguments must be in order
+								char stack_base[stack_size];	// dedicated stack for macro invocation, not to mess up actual stack with in-building call
+								char *stack = stack_base;
+								*stack++ = StackFrameType::macro;
+								stack += store(stack, ndx + 1);	// first token is right after arg count
+								auto has_va = static_cast<bool>(m_buffer[ndx] & 0x80);
+								auto acount = static_cast<uint8_t>(m_buffer[ndx] & ~0x80);
+								*stack++ = acount;
+								size_t depth = 1;
+								size_t count = 1;
+								while (true) {
+									n = next();
+									if (n == nullptr)
+										m_stream.error("Expected token");
+									if (Token::type(n) == Token::Type::Operator) {
+										auto o = Token::op(n);
+										if (o == Token::Op::LPar) {
+											depth++;
+											continue;
+										}
+										else if (o == Token::Op::RPar) {
+											depth--;
+											if (depth == 0)
+												break;
+											continue;
+										} else if (o == Token::Op::Comma) {
+											if (depth == 1) {
+												if (stack + 2 > stack_base + stack_size)	// overshoot 1 byte on arg end for less code
+													m_stream.error("Macro stack overflow");
+												if (count > acount) {	// push new arg as comma for __VA_ARGS__
+													*stack++ = static_cast<char>(Token::Type::Operator);
+													*stack++ = static_cast<char>(Token::Op::Comma);
+												} else {	// mark arg end
+													*stack++ = TokType::end;
+												}
+												count++;
+												continue;
+											}
+										}
+										auto size = Token::whole_size(n);
+										if (stack + size > stack_base + stack_size)
+											m_stream.error("Macro stack overflow");
+										for (uint8_t i = 0; i < size; i++)
+											*m_stack++ = *n++;
+									}
+								}
+								if (stack + 1 > stack_base + stack_size)
+									m_stream.error("Macro stack overflow");
+								*stack++ = TokType::end;
+								if (has_va) {
+									if (stack + 1 > stack_base + stack_size)
+										m_stream.error("Macro stack overflow");
+									if (count < acount)
+										m_stream.error("Not enough args for variadic invocation");
+								} else
+									if (count != acount)
+										m_stream.error("Wrong macro argument count");
+								auto ssize = static_cast<size_t>(stack - stack_base);
+								if (stack + ssize > m_stack + stack_size)
+									m_stream.error("Macro stack overflow");
+								for (size_t i = 0; i < ssize; i++)
+									*m_stack++ = stack_base[i];
+								goto pushed;
+							} else {	// invocation failed return macro name
+								if (n != nullptr) {	// push non lpar next token
+									auto size = Token::whole_size(n);
+									if (m_stack + 3 + size > m_stack_base + stack_size)
+										m_stream.error("Macro stack overflow");
+									*m_stack++ = StackFrameType::tok;
+									for (uint8_t i = 0; i < size; i++)
+										*m_stack++ = *n++;
+									m_stack += store(m_stack, static_cast<uint16_t>(3 + size));
+								}
+								if (m_stack + size > m_stack_base + stack_size)
+									m_stream.error("Macro stack overflow");
+								for (uint8_t i = 0; i < size; i++)	// store macro name in stack top for return value
+									m_stack[i] = nc[i];
+								return m_stack;
+							}
+						}
+					}
+				}
 				return n;
+			}
 		}
+		pushed:;	// path for new stack entry but no immediate token generation to return
 	}
 }

@@ -14,6 +14,25 @@ constexpr size_t array_size(T (&)[Size])
 	return Size;
 }
 
+template <typename T>
+size_t store(char *dst, const T &src)
+{
+	auto csrc = reinterpret_cast<const char*>(&src);
+	for (size_t i = 0; i < sizeof(T); i++)
+		*dst++ = *csrc++;
+	return sizeof(T);
+}
+
+template <typename T>
+T load(const char *src)
+{
+	T res;
+	auto cres = reinterpret_cast<char*>(&res);
+	for (size_t i = 0; i < sizeof(T); i++)
+		*cres++ = *src++;
+	return res;
+}
+
 template <size_t Size, typename T>
 size_t store_part(char *dst, const T &src)
 {

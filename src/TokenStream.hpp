@@ -930,7 +930,7 @@ public:
 	{
 		m_stream.close();
 		if (m_stack > m_stack_base) {	// if stack isn't empty
-			if (m_stack + 5 >= m_stack_base + stack_size) {
+			if (m_stack + 5 > m_stack_base + stack_size) {
 				m_error = "File stack overflow";
 				throw;
 			}
@@ -939,7 +939,7 @@ public:
 		}
 		{
 			auto size = static_cast<uint8_t>(2) + Token::size(filepath);
-			if (m_stack + size + 1 >= m_stack_base + stack_size) {
+			if (m_stack + size + 1 > m_stack_base + stack_size) {
 				m_error = "File stack overflow";
 				throw;
 			}
