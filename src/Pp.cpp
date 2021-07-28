@@ -211,8 +211,7 @@ const char* Pp::next(void)
 										if (o == Token::Op::LPar) {
 											depth++;
 											continue;
-										}
-										else if (o == Token::Op::RPar) {
+										} else if (o == Token::Op::RPar) {
 											depth--;
 											if (depth == 0)
 												break;
@@ -250,6 +249,9 @@ const char* Pp::next(void)
 								} else
 									if (count != acount)
 										m_stream.error("Wrong macro argument count");
+								if (stack + 2 > stack_base + stack_size)
+									m_stream.error("Macro stack overflow");
+								stack += store(stack, static_cast<uint16_t>(stack - stack_base + 2));
 								auto ssize = static_cast<size_t>(stack - stack_base);
 								if (stack + ssize > m_stack + stack_size)
 									m_stream.error("Macro stack overflow");

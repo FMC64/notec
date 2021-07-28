@@ -21,6 +21,15 @@ static void next_assert(Pp &p, Type exp_type, const char *exp)
 		test_assert(n[2 + i] == exp[i]);
 }
 
+static void next_assert_op(Pp &p, Type exp_type, Op exp)
+{
+	auto n = p.next();
+	if (n == nullptr)
+		throw "Expected token, got nothing";
+	test_assert(static_cast<Type>(n[0]) == exp_type);
+	test_assert(static_cast<Op>(n[1]) == exp);
+}
+
 test_case(pp_0)
 {
 	Pp p;
@@ -128,6 +137,49 @@ test_case(pp_8)
 	s.set_file_count(1);
 	s.add_file("f", "#define mac a b c\nmac e");
 	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "a");
+	next_assert(p, Token::Type::Identifier, "b");
+	next_assert(p, Token::Type::Identifier, "c");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_9)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define mac() a b c\nmac e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "mac");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_10)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define mac () a b c\nmac e");
+	p.open(dummy_name);
+	next_assert_op(p, Token::Type::Operator, Token::Op::LPar);
+	next_assert_op(p, Token::Type::Operator, Token::Op::RPar);
+	next_assert(p, Token::Type::Identifier, "a");
+	next_assert(p, Token::Type::Identifier, "b");
+	next_assert(p, Token::Type::Identifier, "c");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_11)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define mac() a b c\nmac() e");
+	p.open(dummy_name);
+	return display_stream(p);
 	next_assert(p, Token::Type::Identifier, "a");
 	next_assert(p, Token::Type::Identifier, "b");
 	next_assert(p, Token::Type::Identifier, "c");
