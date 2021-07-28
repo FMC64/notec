@@ -179,7 +179,6 @@ test_case(pp_11)
 	s.set_file_count(1);
 	s.add_file("f", "#define mac() a b c\nmac() e");
 	p.open(dummy_name);
-	return display_stream(p);
 	next_assert(p, Token::Type::Identifier, "a");
 	next_assert(p, Token::Type::Identifier, "b");
 	next_assert(p, Token::Type::Identifier, "c");
