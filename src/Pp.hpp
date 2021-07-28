@@ -254,46 +254,55 @@ private:
 		static inline constexpr uint8_t arg = 2;
 	};
 
-	inline const char* macro(char *entry)
+	inline bool macro(char *entry, const char *&res)
 	{
 		auto off = load<uint16_t>(entry);
 		auto n = m_buffer + off;
-		if (*n == TokType::end)
-			return nullptr;
+		if (*n == TokType::end) {
+			res = nullptr;
+			return true;
+		}
 		auto s = Token::whole_size(n);
 		store(entry, static_cast<uint16_t>(off + s));
-		return n;
+		res = n;
+		return true;
 	}
 
-	inline const char* tok(char *entry)
+	inline bool tok(char *entry, const char *&res)
 	{
-		if (*entry == TokType::end)
-			return nullptr;
+		if (*entry == TokType::end) {
+			res = nullptr;
+			return true;
+		}
 		*entry = TokType::end;
-		return entry + 1;
+		res = entry + 1;
+		return true;
 	}
 
-	inline const char* arg(char *entry)
+	inline bool arg(char *entry, const char *&res)
 	{
 		auto off = load<uint16_t>(entry);
 		auto n = m_stack + off;
-		if (*n == TokType::end)
-			return nullptr;
+		if (*n == TokType::end) {
+			res = nullptr;
+			return true;
+		}
 		auto s = Token::whole_size(n);
 		store(entry, static_cast<uint16_t>(off + s));
-		return n;
+		res = n;
+		return true;
 	}
 
-	using stack_t = const char* (Pp::*)(char *entry);
+	using stack_t = bool (Pp::*)(char *entry, const char *&res);
 	static inline constexpr stack_t stacks[] = {
 		&Pp::macro,	// 0
 		&Pp::tok,	// 1
 		&Pp::arg	// 2
 	};
 
-	inline const char* stack_poll(char *entry)
+	inline bool stack_poll(char *entry, const char *&res)
 	{
-		return (this->*stacks[*entry])(entry + 1);
+		return (this->*stacks[*entry])(entry + 1, res);
 	}
 
 public:
