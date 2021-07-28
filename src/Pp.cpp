@@ -152,8 +152,22 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, const char *args, const 
 const char* Pp::next(void)
 {
 	while (true) {
-		// token polling from file, only if stack is empty
-		const char *n = next_token();
+		const char *n = nullptr;
+		if (m_stack > m_stack_base) {
+			while (true) {
+				auto s = load<uint16_t>(m_stack - 2);
+				n = stack_poll(m_stack - s);
+				if (n == nullptr)
+					m_stack -= s;
+				else
+					break;
+				if (m_stack <= m_stack_base) {
+					n = next_token();
+					break;
+				}
+			}
+		} else
+			n = next_token();
 		while (true) {
 			if (n == nullptr)
 				return nullptr;
@@ -168,7 +182,7 @@ const char* Pp::next(void)
 							if (m_stack + 6 > m_stack_base + stack_size)
 								m_stream.error("Macro stack overflow");
 							*m_stack++ = StackFrameType::macro;
-							m_stack += store(m_stack, ndx);
+							m_stack += store(m_stack, static_cast<uint16_t>(ndx + 1));
 							*m_stack++ = 0;
 							m_stack += store(m_stack, static_cast<uint16_t>(6));
 							goto pushed;
@@ -182,7 +196,7 @@ const char* Pp::next(void)
 								char stack_base[stack_size];	// dedicated stack for macro invocation, not to mess up actual stack with in-building call
 								char *stack = stack_base;
 								*stack++ = StackFrameType::macro;
-								stack += store(stack, ndx + 1);	// first token is right after arg count
+								stack += store(stack, static_cast<uint16_t>(ndx + 1));	// first token is right after arg count
 								auto has_va = static_cast<bool>(m_buffer[ndx] & 0x80);
 								auto acount = static_cast<uint8_t>(m_buffer[ndx] & ~0x80);
 								*stack++ = acount;
@@ -230,6 +244,7 @@ const char* Pp::next(void)
 								if (has_va) {
 									if (stack + 1 > stack_base + stack_size)
 										m_stream.error("Macro stack overflow");
+									*stack++ = TokType::end;
 									if (count < acount)
 										m_stream.error("Not enough args for variadic invocation");
 								} else
@@ -247,9 +262,10 @@ const char* Pp::next(void)
 									if (m_stack + 3 + size > m_stack_base + stack_size)
 										m_stream.error("Macro stack overflow");
 									*m_stack++ = StackFrameType::tok;
+									*m_stack++ = 0;	// is TokType::end when already substitued
 									for (uint8_t i = 0; i < size; i++)
 										*m_stack++ = *n++;
-									m_stack += store(m_stack, static_cast<uint16_t>(3 + size));
+									m_stack += store(m_stack, static_cast<uint16_t>(4 + size));
 								}
 								if (m_stack + size > m_stack_base + stack_size)
 									m_stream.error("Macro stack overflow");

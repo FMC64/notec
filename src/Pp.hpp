@@ -156,6 +156,7 @@ private:
 			char *arg_top = args;
 			size_t arg_count = 0;
 			bool has_va = false;
+			bool is_dir_cont = true;
 			if (m_stream.get_off() == name_off + 1 && Token::is_op(n, Token::Op::LPar)) {	// has args first
 				bool expect_id = false;
 				bool expect_end = false;
@@ -196,10 +197,11 @@ private:
 				}
 				if (arg_count == 0 && !has_va)	// one unamed argument at beginning
 					arg_count = 1;	// no first argument is indistiguishable from empty first arg
+				is_dir_cont = next_token_dir(n);
 			}
 			m_buffer[m_size++] = arg_count | (has_va ? 0x80 : 0);
 			size_t last = -1;
-			if (next_token_dir(n))
+			if (is_dir_cont)
 				while (true) {
 					auto cur = m_size;
 					auto p = define_add_token(n, has_va, args, arg_top, last);
@@ -251,6 +253,48 @@ private:
 		static inline constexpr uint8_t tok = 1;
 		static inline constexpr uint8_t arg = 2;
 	};
+
+	inline const char* macro(char *entry)
+	{
+		auto off = load<uint16_t>(entry);
+		auto n = m_buffer + off;
+		if (*n == TokType::end)
+			return nullptr;
+		auto s = Token::whole_size(n);
+		store(entry, static_cast<uint16_t>(off + s));
+		return n;
+	}
+
+	inline const char* tok(char *entry)
+	{
+		if (*entry == TokType::end)
+			return nullptr;
+		*entry = TokType::end;
+		return entry + 1;
+	}
+
+	inline const char* arg(char *entry)
+	{
+		auto off = load<uint16_t>(entry);
+		auto n = m_stack + off;
+		if (*n == TokType::end)
+			return nullptr;
+		auto s = Token::whole_size(n);
+		store(entry, static_cast<uint16_t>(off + s));
+		return n;
+	}
+
+	using stack_t = const char* (Pp::*)(char *entry);
+	static inline constexpr stack_t stacks[] = {
+		&Pp::macro,	// 0
+		&Pp::tok,	// 1
+		&Pp::arg	// 2
+	};
+
+	inline const char* stack_poll(char *entry)
+	{
+		return (this->*stacks[*entry])(entry + 1);
+	}
 
 public:
 	const char* next(void);
