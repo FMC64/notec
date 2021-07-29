@@ -149,6 +149,68 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, size_t arg_count, const 
 	return TokPoll::Do;
 }
 
+void Pp::tok_str(const char *&n, char *&c, const char *args)
+{
+	auto t = *n;
+	n++;
+	// make table? might shrink bin & improve perfs
+	if (t == static_cast<char>(Token::Type::NumberLiteral) || t == static_cast<char>(Token::Type::Identifier)) {
+		auto s = static_cast<uint8_t>(*n++);
+		if (c + s > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		for (uint8_t i = 0; i < s; i++)
+			*c++ = *n++;
+	} else if (t == static_cast<char>(Token::Type::StringLiteral)) {	// sys string can't be parsed outside of #include
+		auto s = static_cast<uint8_t>(*n++);
+		if (c + s + 2 > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		*c++ = '\"';
+		for (uint8_t i = 0; i < s; i++)
+			*c++ = *n++;
+		*c++ = '\"';
+	} else if (t == static_cast<char>(Token::Type::ValueChar8)) {
+		if (c + 3 > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		*c++ = '\'';
+		*c++ = *n++;
+		*c++ = '\'';
+	} else if (t == static_cast<char>(Token::Type::Operator)) {	// oh boy
+		if (c + 1 > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		*c++ = '+';	// let's just pretend we didn't see that right
+		n++;
+	} else if (t == TokType::arg) {
+		auto m = static_cast<uint8_t>(*n++);
+		auto a = args + 1;
+		for (uint8_t i = 0; i < m; i++) {
+			while (*a != TokType::end)
+				a += Token::whole_size(a);
+			a++;
+		}
+		while (*a != TokType::end)
+			tok_str(a, c, args);
+	} else if (t == TokType::str) {
+		if (c + 1 > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		*c++ = '\"';
+		tok_str(n, c, args);
+		if (c + 1 > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		*c++ = '\"';
+	} else if (t == TokType::spat) {	// we ignore whitespace so spatting is trivial
+		auto m = static_cast<uint8_t>(*n++);
+		for (uint8_t i = 0; i < m; i++)
+			tok_str(n, c, args);
+	} else if (t == TokType::opt) {
+		auto cp = c;
+		auto m = static_cast<uint8_t>(*n++);
+		for (uint8_t i = 0; i < m; i++)
+			tok_str(n, cp, args);
+		if (*args)
+			c = cp;
+	}
+}
+
 const char* Pp::next(void)
 {
 	while (true) {
@@ -198,7 +260,7 @@ const char* Pp::next(void)
 								char *stack = stack_base;
 								*stack++ = StackFrameType::macro;
 								stack += store(stack, static_cast<uint16_t>(ndx + 1));	// first token is right after arg count
-								auto va_empty = stack++;
+								auto va_any = stack++;
 								auto has_va = static_cast<bool>(m_buffer[ndx] & 0x80);
 								auto acount = static_cast<uint8_t>(m_buffer[ndx] & ~0x80);
 								size_t depth = 1;
@@ -244,8 +306,8 @@ const char* Pp::next(void)
 								if (has_va) {
 									if (count < acount)
 										m_stream.error("Not enough args for variadic invocation");
-									*va_empty = count == acount;
-									if (*va_empty) {
+									*va_any = count > acount;
+									if (!*va_any) {
 										if (stack + 1 > stack_base + stack_size)
 											m_stream.error("Macro stack overflow");
 										*stack++ = TokType::end;
