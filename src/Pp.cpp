@@ -149,33 +149,52 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, size_t arg_count, const 
 	return TokPoll::Do;
 }
 
-void Pp::tok_str(const char *&n, char *&c, const char *args)
+void Pp::tok_skip(const char *&n)
+{
+	auto t = *n;
+	n++;
+	// make table? might improve perfs
+	if (t < Token::type_first_constant) {
+		auto s = static_cast<uint8_t>(*n++);
+		n += s;
+	} else if (t >= Token::type_first_constant && t <= TokType::arg) {
+		n++;
+	} else if (t == TokType::str) {
+		tok_skip(n);
+	} else if (t == TokType::spat || t == TokType::opt) {
+		auto m = static_cast<uint8_t>(*n++);
+		for (uint8_t i = 0; i < m; i++)
+			tok_skip(n);
+	}
+}
+
+void Pp::tok_str(const char *&n, char *&c, const char *c_top, const char *args)
 {
 	auto t = *n;
 	n++;
 	// make table? might shrink bin & improve perfs
 	if (t == static_cast<char>(Token::Type::NumberLiteral) || t == static_cast<char>(Token::Type::Identifier)) {
 		auto s = static_cast<uint8_t>(*n++);
-		if (c + s > m_stack_base + stack_size)
+		if (c + s > c_top)
 			m_stream.error("Macro stack overflow");
 		for (uint8_t i = 0; i < s; i++)
 			*c++ = *n++;
 	} else if (t == static_cast<char>(Token::Type::StringLiteral)) {	// sys string can't be parsed outside of #include
 		auto s = static_cast<uint8_t>(*n++);
-		if (c + s + 2 > m_stack_base + stack_size)
+		if (c + s + 2 > c_top)
 			m_stream.error("Macro stack overflow");
 		*c++ = '\"';
 		for (uint8_t i = 0; i < s; i++)
 			*c++ = *n++;
 		*c++ = '\"';
 	} else if (t == static_cast<char>(Token::Type::ValueChar8)) {
-		if (c + 3 > m_stack_base + stack_size)
+		if (c + 3 > c_top)
 			m_stream.error("Macro stack overflow");
 		*c++ = '\'';
 		*c++ = *n++;
 		*c++ = '\'';
 	} else if (t == static_cast<char>(Token::Type::Operator)) {	// oh boy
-		if (c + 1 > m_stack_base + stack_size)
+		if (c + 1 > c_top)
 			m_stream.error("Macro stack overflow");
 		*c++ = '+';	// let's just pretend we didn't see that right
 		n++;
@@ -188,26 +207,28 @@ void Pp::tok_str(const char *&n, char *&c, const char *args)
 			a++;
 		}
 		while (*a != TokType::end)
-			tok_str(a, c, args);
+			tok_str(a, c, c_top, args);
 	} else if (t == TokType::str) {
-		if (c + 1 > m_stack_base + stack_size)
+		if (c + 1 > c_top)
 			m_stream.error("Macro stack overflow");
 		*c++ = '\"';
-		tok_str(n, c, args);
-		if (c + 1 > m_stack_base + stack_size)
+		tok_str(n, c, c_top, args);
+		if (c + 1 > c_top)
 			m_stream.error("Macro stack overflow");
 		*c++ = '\"';
 	} else if (t == TokType::spat) {	// we ignore whitespace so spatting is trivial
 		auto m = static_cast<uint8_t>(*n++);
 		for (uint8_t i = 0; i < m; i++)
-			tok_str(n, c, args);
+			tok_str(n, c, c_top, args);
 	} else if (t == TokType::opt) {
-		auto cp = c;
-		auto m = static_cast<uint8_t>(*n++);
-		for (uint8_t i = 0; i < m; i++)
-			tok_str(n, cp, args);
-		if (*args)
-			c = cp;
+		if (*args) {
+			auto m = static_cast<uint8_t>(*n++);
+			for (uint8_t i = 0; i < m; i++)
+				tok_str(n, c, c_top, args);
+		} else {
+			n--;
+			tok_skip(n);
+		}
 	}
 }
 

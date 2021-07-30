@@ -254,8 +254,8 @@ private:
 		static inline constexpr uint8_t arg = 2;
 	};
 
-	// c implicitely belongs to m_stack
-	void tok_str(const char *&n, char *&c, const char *args);
+	void tok_skip(const char *&n);
+	void tok_str(const char *&n, char *&c, const char *c_top, const char *args);
 
 	inline bool macro(char *entry, const char *&res)
 	{
@@ -286,7 +286,7 @@ private:
 			*c++ = static_cast<char>(Token::Type::StringLiteral);
 			auto size = reinterpret_cast<uint8_t*>(c++);
 			n++;
-			tok_str(n, c, entry + 2);
+			tok_str(n, c, m_stack_base + stack_size, entry + 2);
 			*size = c - m_stack - 2;
 			store(entry, static_cast<uint16_t>(n - m_buffer));
 			return true;
