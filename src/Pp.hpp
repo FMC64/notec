@@ -280,6 +280,17 @@ private:
 			m_stack += store(m_stack, static_cast<uint16_t>(n - m_stack_base));
 			m_stack += store(m_stack, static_cast<uint16_t>(5));
 			return false;
+		} else if (t == TokType::opt) {
+			if (entry[2])
+				n += 2;
+			else {
+				auto m = static_cast<uint8_t>(n[1]);
+				n += 2;
+				for (uint8_t i = 0; i < m; i++)
+					tok_skip(n);
+			}
+			store(entry, static_cast<uint16_t>(n - m_buffer));
+			return false;
 		} else if (t == TokType::str) {
 			res = m_stack;
 			auto c = m_stack;
@@ -290,7 +301,8 @@ private:
 			*size = c - m_stack - 2;
 			store(entry, static_cast<uint16_t>(n - m_buffer));
 			return true;
-		}
+		}/* else if (t == TokType::spat) {
+		}*/
 		auto s = Token::whole_size(n);
 		store(entry, static_cast<uint16_t>(off + s));
 		res = n;

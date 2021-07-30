@@ -256,3 +256,30 @@ test_case(pp_16)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_17)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define cat_str(a, b, ...) __VA_OPT__(a + b - __VA_ARGS__)\ncat_str(1, 2, 3) e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::NumberLiteral, "1");
+	next_assert_op(p, Token::Type::Operator, Token::Op::Plus);
+	next_assert(p, Token::Type::NumberLiteral, "2");
+	next_assert_op(p, Token::Type::Operator, Token::Op::Minus);
+	next_assert(p, Token::Type::NumberLiteral, "3");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_18)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define cat_str(a, b, ...) __VA_OPT__(a + b - __VA_ARGS__)\ncat_str(1, 2) e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
