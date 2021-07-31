@@ -59,3 +59,10 @@ T load_part(const char *src)
 		*cres++ = *src++;
 	return res;
 }
+
+template <typename T, size_t Size>
+struct carray
+{
+	static constexpr auto size(void) { return Size; }
+	T data[Size];
+};

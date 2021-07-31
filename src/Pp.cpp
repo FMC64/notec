@@ -168,6 +168,129 @@ void Pp::tok_skip(const char *&n)
 	}
 }
 
+template <Token::Op op, auto str, auto ...rest>
+static inline constexpr auto computeOpStrTableSize(void)
+{
+	size_t s = str.size() + 1;
+	if constexpr (sizeof...(rest) > 0)
+		s += computeOpStrTableSize<rest...>();
+	return s;
+}
+
+template <Token::Op op, auto str, auto ...rest>
+static inline constexpr auto fillOpStrTable(auto &res, size_t &ndx)
+{
+	res.data[static_cast<uint8_t>(static_cast<char>(op))] = ndx;
+	size_t s = str.size();
+	res.data[ndx++] = static_cast<uint8_t>(s);
+	for (size_t i = 0; i < s; i++)
+		res.data[ndx++] = str.data[i];
+	if constexpr (sizeof...(rest) > 0)
+		s += fillOpStrTable<rest...>(res, ndx);
+	return s;
+}
+
+template <Token::Op op, auto str, auto ...rest>
+static inline constexpr auto computeOpStrTable(void)
+{
+	constexpr size_t s = static_cast<char>(Token::last_op) + 1 + computeOpStrTableSize<op, str, rest...>();
+	struct {
+		char data[s];
+	} res;
+	for (size_t i = 0; i < s; i++)
+		res.data[i] = 0;
+	size_t i = static_cast<char>(Token::last_op) + 1;
+	fillOpStrTable<op, str, rest...>(res, i);
+	return res;
+}
+
+template <size_t Size>
+using CStr = carray<char, Size>;
+
+template <size_t Size>
+static constexpr auto genCStr(const char (&str)[Size])
+{
+	CStr<Size - 1> res;
+	for (size_t i = 0; i < Size - 1; i++)
+		res.data[i] = str[i];
+	return res;
+}
+
+static constexpr auto op_str_table = computeOpStrTable<
+#define OP_STR_ENTRY(n, s) Token::Op::n, genCStr(s)
+	OP_STR_ENTRY(Not, "!"),
+	OP_STR_ENTRY(Plus, "+"),
+	OP_STR_ENTRY(Minus, "-"),
+	OP_STR_ENTRY(BitAnd, "&"),
+	OP_STR_ENTRY(BitOr, "|"),
+	OP_STR_ENTRY(Mul, "*"),
+	OP_STR_ENTRY(Colon, ":"),
+	OP_STR_ENTRY(Less, "<"),
+	OP_STR_ENTRY(Greater, ">"),
+	OP_STR_ENTRY(Equal, "="),
+	OP_STR_ENTRY(Point, "."),
+	OP_STR_ENTRY(BitXor, "^"),
+	OP_STR_ENTRY(Mod, "%"),
+	OP_STR_ENTRY(Div, "/"),
+	OP_STR_ENTRY(Sharp, "#"),
+
+	OP_STR_ENTRY(NotEqual, "!="),
+
+	OP_STR_ENTRY(PlusPlus, "++"),
+	OP_STR_ENTRY(PlusEqual, "+="),
+
+	OP_STR_ENTRY(BitAndEqual, "&="),
+
+	OP_STR_ENTRY(Or, "|"),
+	OP_STR_ENTRY(BitOrEqual, "|="),
+
+	OP_STR_ENTRY(BitXorEqual, "^="),
+
+	OP_STR_ENTRY(MulEqual, "*="),
+
+	OP_STR_ENTRY(DivEqual, "/="),
+	OP_STR_ENTRY(Comment, "/*"),
+	OP_STR_ENTRY(SLComment, "//"),
+
+	OP_STR_ENTRY(ModEqual, "%="),
+
+	OP_STR_ENTRY(LessEqual, "<="),
+	OP_STR_ENTRY(BitLeft, "<<"),
+	OP_STR_ENTRY(BitLeftEqual, "<<="),
+
+	OP_STR_ENTRY(GreaterEqual, ">="),
+	OP_STR_ENTRY(BitRight, ">>"),
+	OP_STR_ENTRY(BitRightEqual, ">>="),
+
+	OP_STR_ENTRY(EqualEqual, "=="),
+	OP_STR_ENTRY(Expand, "..."),
+
+	OP_STR_ENTRY(LPar, "("),
+	OP_STR_ENTRY(RPar, ")"),
+	OP_STR_ENTRY(LArr, "["),
+	OP_STR_ENTRY(RArr, "]"),
+	OP_STR_ENTRY(Tilde, "~"),
+	OP_STR_ENTRY(Comma, ","),
+	OP_STR_ENTRY(Huh, "?"),
+	OP_STR_ENTRY(Semicolon, ";"),
+	OP_STR_ENTRY(LBra, "{"),
+	OP_STR_ENTRY(RBra, "}"),
+
+	OP_STR_ENTRY(TWComp, "<=>"),
+	OP_STR_ENTRY(Scope, "::"),
+
+	OP_STR_ENTRY(MinusMinus, "--"),
+	OP_STR_ENTRY(MinusEqual, "-="),
+
+	OP_STR_ENTRY(PointMember, ".*"),
+	OP_STR_ENTRY(ArrowMember, "->*"),
+
+	OP_STR_ENTRY(Arrow, "->"),
+	OP_STR_ENTRY(And, "&"),
+	OP_STR_ENTRY(DoubleSharp, "##")
+#undef OP_STR_ENTRY
+>();
+
 void Pp::tok_str(const char *&n, char *&c, const char *c_top, const char *args)
 {
 	auto t = *n;
@@ -193,11 +316,13 @@ void Pp::tok_str(const char *&n, char *&c, const char *c_top, const char *args)
 		*c++ = '\'';
 		*c++ = *n++;
 		*c++ = '\'';
-	} else if (t == static_cast<char>(Token::Type::Operator)) {	// oh boy
-		if (c + 1 > c_top)
+	} else if (t == static_cast<char>(Token::Type::Operator)) {
+		auto m = &op_str_table.data[op_str_table.data[static_cast<uint8_t>(*n++)]];
+		auto s = static_cast<uint8_t>(*m++);
+		if (c + s > c_top)
 			m_stream.error("Macro stack overflow");
-		*c++ = '+';	// let's just pretend we didn't see that right
-		n++;
+		for (uint8_t i = 0; i < s; i++)
+			*c++ = *m++;
 	} else if (t == TokType::arg) {
 		auto m = static_cast<uint8_t>(*n++);
 		auto a = args + 1;

@@ -240,7 +240,7 @@ test_case(pp_15)
 	s.set_file_count(1);
 	s.add_file("f", "#define cat_str(a, b, ...) #__VA_OPT__(a + b - __VA_ARGS__)\ncat_str(1, 2, 3) e");
 	p.open(dummy_name);
-	next_assert(p, Token::Type::StringLiteral, "1+2+3");
+	next_assert(p, Token::Type::StringLiteral, "1+2-3");
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }

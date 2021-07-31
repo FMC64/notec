@@ -113,6 +113,7 @@ enum class Op : char {
 	And = 55,	// &
 	DoubleSharp = 56	// ##
 };
+static inline constexpr auto last_op = Op::DoubleSharp;
 
 static inline Op op(const char *token)
 {
