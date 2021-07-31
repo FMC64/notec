@@ -273,3 +273,10 @@ test_case(token_20)
 	test_assert(res.pop());
 	test_assert(!res.pop());
 }
+
+test_case(token_21)
+{
+	auto toks = init_file("->*");
+	next_assert_op(toks, Type::Operator, Op::ArrowMember);
+	test_assert(toks.next() == nullptr);
+}

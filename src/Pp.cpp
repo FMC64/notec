@@ -194,11 +194,9 @@ template <Token::Op op, auto str, auto ...rest>
 static inline constexpr auto computeOpStrTable(void)
 {
 	constexpr size_t s = static_cast<char>(Token::last_op) + 1 + computeOpStrTableSize<op, str, rest...>();
-	struct {
-		char data[s];
-	} res;
+	carray<char, s> res;
 	for (size_t i = 0; i < s; i++)
-		res.data[i] = 0;
+		res.data[i] = 0;	// 5 & 7 are undef because of gap in op enum
 	size_t i = static_cast<char>(Token::last_op) + 1;
 	fillOpStrTable<op, str, rest...>(res, i);
 	return res;

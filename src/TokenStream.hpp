@@ -288,7 +288,7 @@ namespace OpCplx {
 					gtb(0, empty),	// [0] =
 					0,	// [1] +
 					gtb(1, empty),	// [2] -
-					gtb(2, empty),	// [3] >
+					gtb(2, 7),	// [3] >
 					0,	// [4] <
 					0,	// [5] &
 					0,	// [6] |

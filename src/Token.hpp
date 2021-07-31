@@ -96,6 +96,7 @@ enum class Op : char {
 	Tilde = 41,	// ~
 	Comma = 42,	// ,
 	Huh = 43,	// ?
+	DoubleSharp = 44,	// ##
 	Semicolon = 45,	// ;
 	LBra = 46,	// {
 	RBra = 47,	// }
@@ -111,9 +112,8 @@ enum class Op : char {
 
 	Arrow = 54,	// ->
 	And = 55,	// &
-	DoubleSharp = 56	// ##
 };
-static inline constexpr auto last_op = Op::DoubleSharp;
+static inline constexpr auto last_op = Op::And;
 
 static inline Op op(const char *token)
 {
