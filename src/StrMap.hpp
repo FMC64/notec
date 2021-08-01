@@ -103,6 +103,11 @@ public:
 		free(m_root);
 	}
 
+	inline bool resolve(const char *str)
+	{
+		return resolve_u16(str, 0, nullptr);
+	}
+
 	template <typename T>
 	inline bool resolve(const char *str, T &res)
 	{
@@ -115,6 +120,11 @@ public:
 			res = *reinterpret_cast<const T*>(c);
 			return true;
 		}
+	}
+
+	inline bool insert(const char *str)
+	{
+		return insert_u16(str, 0, nullptr);
 	}
 
 	template <typename T>
