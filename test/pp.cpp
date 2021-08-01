@@ -283,3 +283,17 @@ test_case(pp_18)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_19)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define cat_id(a, b) a ## b c\ncat_id(a, b) e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "a");	// incorrect but desired behavior for testing partial implementation
+	next_assert(p, Token::Type::Identifier, "b");
+	next_assert(p, Token::Type::Identifier, "c");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}

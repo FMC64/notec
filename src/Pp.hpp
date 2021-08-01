@@ -137,7 +137,8 @@ private:
 	inline bool define_is_tok_spattable(char *token)
 	{
 		auto t = Token::type(token);
-		return t == Token::Type::Identifier || t == static_cast<Token::Type>(TokType::arg) || t == static_cast<Token::Type>(TokType::opt);
+		return static_cast<char>(t) <= static_cast<char>(Token::Type::Identifier) || t == Token::Type::Operator ||
+			t == static_cast<Token::Type>(TokType::arg) || t == static_cast<Token::Type>(TokType::opt);
 	}
 
 	inline const char* define(void)
@@ -301,8 +302,52 @@ private:
 			*size = c - m_stack - 2;
 			store(entry, static_cast<uint16_t>(n - m_buffer));
 			return true;
-		}/* else if (t == TokType::spat) {
-		}*/
+		} else if (t == TokType::spat) {	// hardest one, bufferize generated tokens on a separate stack then output them one by one on the lowest level
+			auto m = static_cast<uint8_t>(n[1]);
+			n += 2;
+			store(entry, static_cast<uint16_t>(n - m_buffer));
+			char stack_base[stack_size];
+			auto stack = stack_base;
+			char *last = nullptr;
+			bool can_spat = false;
+			auto base = m_stack;
+			auto next = n;
+			for (uint8_t i = 0; i < m; i++) {
+				tok_skip(next);	// next is next spat arg in macro seq
+
+				while (m_stack >= base) {	// can't poll tokens from earlier frames
+					auto s = load<uint16_t>(m_stack - 2);
+					if (stack_poll(m_stack - s, n)) {
+						if (n == nullptr)
+							m_stack -= s;
+						else {
+							auto s = Token::whole_size(n);
+							if (stack + s > stack_base + stack_size)
+								m_stream.error("Macro stack overflow");
+							for (uint8_t i = 0; i < s; i++)
+								*stack++ = *n++;
+						}
+					}
+					if (m_stack == base)	// do not signal current token while upper macro stack has not been consumed
+						if (m_buffer + load<uint16_t>(entry) >= next)	// next spat token reached
+							break;
+				}
+				can_spat = true;
+			}
+			if (stack + 1 > stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*stack++ = TokType::end;
+			uint16_t s = stack - stack_base;
+			if (m_stack + 5 + s > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*m_stack++ = StackFrameType::arg;
+			m_stack += store(m_stack, static_cast<uint16_t>(m_stack + 2 - m_stack_base));
+			stack = stack_base;
+			for (uint8_t i = 0; i < s; i++)
+				*m_stack++ = *stack++;
+			m_stack += store(m_stack, static_cast<uint16_t>(5 + s));
+			return false;
+		}
 		auto s = Token::whole_size(n);
 		store(entry, static_cast<uint16_t>(off + s));
 		res = n;

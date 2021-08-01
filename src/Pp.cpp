@@ -358,21 +358,20 @@ void Pp::tok_str(const char *&n, char *&c, const char *c_top, const char *args)
 const char* Pp::next(void)
 {
 	while (true) {
-		const char *n = nullptr;
+		const char *n;
 		if (m_stack > m_stack_base) {
-			while (true) {
+			n = nullptr;
+			do {
 				auto s = load<uint16_t>(m_stack - 2);
 				if (stack_poll(m_stack - s, n)) {
-					if (n == nullptr) {
+					if (n == nullptr)
 						m_stack -= s;
-						if (m_stack <= m_stack_base) {
-							n = next_token();
-							break;
-						}
-					} else
+					else
 						break;
 				}
-			}
+			} while (m_stack > m_stack_base);
+			if (n == nullptr)
+				n = next_token();
 		} else
 			n = next_token();
 		while (true) {
