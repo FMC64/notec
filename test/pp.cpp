@@ -51,8 +51,10 @@ test_case(pp_1)
 	s.set_file_count(2);
 	s.add_file("f", "a #include\n<f2> b");
 	s.add_file("f2", "c");
-	catch (p.get_tstream())
+	catch (p.get_tstream()) {
+		p.get_stream().close();
 		return;
+	}
 	p.open(dummy_name);
 	next_assert(p, Token::Type::Identifier, "a");
 	next_assert(p, Token::Type::Identifier, "c");

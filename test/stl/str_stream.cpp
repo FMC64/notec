@@ -24,6 +24,7 @@ static std::vector<std::string> set(const char *in)
 		buf[size] = 0;
 		res.emplace_back(buf);
 	}
+	s.close();
 	return res;
 }
 

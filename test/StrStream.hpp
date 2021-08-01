@@ -47,6 +47,7 @@ public:
 	}
 	~StrStream(void)
 	{
+		m_buf.data = nullptr;
 		for (size_t i = 0; i < m_entry_count; i++) {
 			std::free(m_entries[i].name);
 			delete[] m_entries[i].data;
@@ -102,11 +103,7 @@ public:
 
 	void close(void)
 	{
-		if (m_buf.data != nullptr) {
-			delete[] m_buf.data;
-			m_buf.data = nullptr;
-			m_buf.size = 0;
-		}
+		delete[] m_buf.data;
 	}
 
 	// custom test methods
