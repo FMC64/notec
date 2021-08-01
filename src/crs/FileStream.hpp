@@ -16,7 +16,7 @@ public:
 		return true;
 	}
 
-	bool open(const char *filepath)
+	bool open(const char *filepath, char *&stack, const char *stack_top)
 	{
 		return true;
 	}
