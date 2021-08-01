@@ -19,7 +19,9 @@ static std::vector<std::string> set(const char *in)
 	StrStream s;
 	s.set_file_count(1);
 	s.add_file("f", in);
-	test_assert(s.open(dummy_name));
+	char stack_base[256];
+	auto stack = stack_base;
+	test_assert(s.open(dummy_name, stack, stack_base + 256));
 	while (auto size = s.read(buf, BufSize)) {
 		buf[size] = 0;
 		res.emplace_back(buf);

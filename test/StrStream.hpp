@@ -72,7 +72,9 @@ public:
 		return m_ndx >= m_buf.size;
 	}
 
-	bool open(const char *filepath)
+	// stack contains ptr for opened file signature or opening error
+	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
+	bool open(const char *filepath, char *&stack, const char *stack_top)
 	{
 		const char *str = Token::data(filepath);
 		uint8_t size = Token::size(filepath);
@@ -91,6 +93,12 @@ public:
 			m_buf.size = e.size;
 			m_buf.data = new char[e.size];
 			std::memcpy(m_buf.data, e.data, e.size);
+			if (stack_top != nullptr) {
+				*stack++ = filepath[0];
+				*stack++ = size;
+				for (uint8_t i = 0; i < size; i++)
+					*stack++ = str[i];
+			}
 			return true;
 		}
 		return false;

@@ -937,22 +937,20 @@ public:
 			m_stack += store_part<3>(m_stack, get_off());
 			m_stack += store_part<2>(m_stack, m_row);
 		}
+		auto base = m_stack;
+		if (!m_stream.open(filepath, m_stack, m_stack_base + stack_size)) {
+			m_error = base;
+			throw;
+		}
 		{
-			auto size = static_cast<uint8_t>(2) + Token::size(filepath);
+			auto size = static_cast<uint8_t>(m_stack - base);
 			if (m_stack + size + 1 > m_stack_base + stack_size) {
 				m_error = "File stack overflow";
 				throw;
 			}
-			auto cf = filepath;
-			for (uint8_t i = 0; i < size; i++)
-				*m_stack++ = *cf++;
 			*m_stack++ = size;
 		}
 
-		if (!m_stream.open(filepath)) {
-			m_error = filepath;
-			throw;
-		}
 		reset_buf();
 		m_off = 0;
 		m_row = 0;
@@ -971,7 +969,7 @@ public:
 		m_stack -= 3;
 		m_off = load_part<3, size_t>(m_stack);
 		auto filepath = m_stack - 1 - m_stack[-1];
-		if (!m_stream.open(filepath)) {
+		if (!m_stream.open(filepath, m_stack, nullptr)) {
 			m_error = filepath;
 			throw;
 		}
