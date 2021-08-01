@@ -134,10 +134,16 @@ private:
 	};
 	TokPoll define_add_token(char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last);
 
-	inline bool define_is_tok_spattable(char *token)
+	inline bool define_is_tok_spattable_ll(const char *token)
 	{
 		auto t = Token::type(token);
-		return static_cast<char>(t) <= static_cast<char>(Token::Type::Identifier) || t == Token::Type::Operator ||
+		return static_cast<char>(t) <= static_cast<char>(Token::Type::Identifier);
+	}
+
+	inline bool define_is_tok_spattable(const char *token)
+	{
+		auto t = Token::type(token);
+		return define_is_tok_spattable_ll(token) ||// t == Token::Type::Operator ||
 			t == static_cast<Token::Type>(TokType::arg) || t == static_cast<Token::Type>(TokType::opt);
 	}
 
@@ -321,11 +327,25 @@ private:
 						if (n == nullptr)
 							m_stack -= s;
 						else {
-							auto s = Token::whole_size(n);
-							if (stack + s > stack_base + stack_size)
-								m_stream.error("Macro stack overflow");
-							for (uint8_t i = 0; i < s; i++)
-								*stack++ = *n++;
+							if (can_spat && last != nullptr) {
+								if (!define_is_tok_spattable_ll(n))
+									m_stream.error("Invalid token for spatting");
+								auto s = Token::size(n);
+								if (stack + s > stack_base + stack_size)
+									m_stream.error("Macro stack overflow");
+								auto d = Token::data(n);
+								for (uint8_t i = 0; i < s; i++)
+									*stack++ = *d++;
+								last[1] += s;
+							} else {
+								last = stack;
+								auto s = Token::whole_size(n);
+								if (stack + s > stack_base + stack_size)
+									m_stream.error("Macro stack overflow");
+								for (uint8_t i = 0; i < s; i++)
+									*stack++ = *n++;
+							}
+							can_spat = false;
 						}
 					}
 					if (m_stack == base)	// do not signal current token while upper macro stack has not been consumed
