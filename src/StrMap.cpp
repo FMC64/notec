@@ -35,7 +35,7 @@ bool BlockGroup::insert_u16(const char *str, uint16_t payload_size, const uint16
 	auto blk_size = [this, payload_size](uint16_t ndx) -> uint16_t {
 		auto cur = m_root[ndx];
 		return (cur.control & Block::Control::next_child_direct ? 1 : 3) +
-		(cur.control & Block::Control::has_payload ? payload_size : 0);
+		(cur.control & Block::Control::has_payload_storage ? payload_size : 0);
 	};
 	uint16_t entry_size;
 	uint16_t needed = 3 + (*str == 0 ? payload_size : 0);
@@ -100,7 +100,7 @@ bool BlockGroup::insert_u16(const char *str, uint16_t payload_size, const uint16
 		add_blocks(2 + payload_size);
 		m_count += 2 + payload_size;
 	}
-	m_root[ind].control |= Block::Control::has_payload;
+	m_root[ind].control |= Block::Control::has_payload | Block::Control::has_payload_storage;
 	for (uint16_t i = 0; i < payload_size; i++)
 		m_root[ind + 3 + i] = reinterpret_cast<const Block&>(payload[i]);
 

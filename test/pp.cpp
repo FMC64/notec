@@ -312,3 +312,15 @@ test_case(pp_20)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_21)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#define mac a b c\n#undef mac\nmac e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "mac");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}

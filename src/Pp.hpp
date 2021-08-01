@@ -16,6 +16,7 @@ public:
 		#define PP_DIRECTIVE_NEXT(id) m_dirs.insert(#id, &Pp::id)
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
+		PP_DIRECTIVE_NEXT(undef);
 		#undef PP_DIRECTIVE_NEXT
 		m_stack = m_stack_base;
 	}
@@ -236,6 +237,21 @@ private:
 					m_stream.error("Redefinition do not match");
 			m_size -= size;	// don't keep same buffer
 		}
+		return n;
+	}
+
+	// give opportunity to trim macro buffer if definition at end?
+	// doesn't seem worth extra code for now and macros already fairly slim
+	inline const char* undef(void)
+	{
+		char *n;
+		if (!next_token_dir(n))
+			m_stream.error("Expected token");
+		assert_token_type(n, Token::Type::Identifier);
+		token_nter(nn, n);
+		m_macros.remove(nn);
+		if (next_token_dir(n))
+			m_stream.error("Expected only one token");
 		return n;
 	}
 

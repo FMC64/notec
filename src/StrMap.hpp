@@ -28,6 +28,7 @@ struct Block
 		static inline constexpr char next_child_direct = 0x02;
 		static inline constexpr char has_next_entry = 0x04;
 		static inline constexpr char has_payload = 0x08;
+		static inline constexpr char has_payload_storage = 0x10;
 	};
 };
 
@@ -137,6 +138,16 @@ public:
 			reinterpret_cast<T&>(*payload16) = payload;
 			return insert_u16(str, get_payload_size<T>(), reinterpret_cast<const uint16_t*>(payload16));
 		}
+	}
+
+	inline bool remove(const char *str)
+	{
+		auto n = resolve_node(str);
+		if (*str == 0) {
+			m_root[n].control &= ~Block::Control::has_payload;
+			return true;
+		}
+		return false;
 	}
 
 private:
