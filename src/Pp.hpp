@@ -257,8 +257,9 @@ private:
 
 	inline const char* directive(void)
 	{
-		auto n = next_token();
-		assert_token(n);
+		char *n;
+		if (!next_token_dir(n))
+			return n;
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		const char* (Pp::*dir)(void);
