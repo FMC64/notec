@@ -16,12 +16,17 @@ public:
 	inline Pp(void)
 	{
 		#define PP_DIRECTIVE_NEXT(id) m_dirs.insert(#id, &Pp::id)
+		#define PP_DIRECTIVE_NEXT_V(name, id) m_dirs.insert(name, &Pp::id)
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
 		PP_DIRECTIVE_NEXT(undef);
 		PP_DIRECTIVE_NEXT(error);
 		PP_DIRECTIVE_NEXT(pragma);
 		PP_DIRECTIVE_NEXT(line);
+		PP_DIRECTIVE_NEXT(ifdef);
+		PP_DIRECTIVE_NEXT(ifndef);
+		PP_DIRECTIVE_NEXT_V("else", delse);
+		PP_DIRECTIVE_NEXT(endif);
 		#undef PP_DIRECTIVE_NEXT
 		m_stack = m_stack_base;
 
@@ -604,6 +609,120 @@ private:
 				*m_stack++ = *n++;
 			m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
 		}
+	}
+
+	size_t m_cond_level = 0;
+
+	inline const char* ifdef_gen(bool seek_undef)
+	{
+		const char *n;
+		if (!next_token_dir(n))
+			m_stream.error("Expected token");
+		if (Token::type(n) != Token::Type::Identifier)
+			m_stream.error("Expected identifier");
+		bool match;
+		{
+			token_nter(nn, n);
+			match = m_macros.resolve(nn) ^ seek_undef;
+		}
+		if (next_token_dir(n))
+			m_stream.error("Expected no further token");
+		m_cond_level++;
+		if (!match) {
+			size_t depth = 0;
+			while (true) {
+				if (n == nullptr)
+					m_stream.error("Expected token");
+				if (Token::is_op(n, Token::Op::Sharp)) {
+					if (next_token_dir(n)) {
+						const char* (Pp::*dir)(void);
+						{
+							token_nter(nn, n);
+							if (!m_dirs.resolve(nn, dir))
+								m_stream.error("Unknown directive");
+						}
+						if (dir == &Pp::ifdef || dir == &Pp::ifndef)
+							depth++;
+						else if (dir == &Pp::endif) {
+							if (depth == 0)
+								break;
+							depth--;
+						} else if (dir == &Pp::delse) {
+							if (depth == 0)
+								break;
+						}
+						while (next_token_dir(n));
+						goto after_polling;
+					}
+				}
+				n = next_token();
+				after_polling:;
+			}
+			if (next_token_dir(n))
+				m_stream.error("Expected no further token");
+		}
+		return n;
+	}
+
+	inline const char* ifdef(void)
+	{
+		return ifdef_gen(false);
+	}
+
+	inline const char* ifndef(void)
+	{
+		return ifdef_gen(true);
+	}
+
+	// we reached end of if or elif block
+	inline const char* delse(void)
+	{
+		const char *n;
+		if (next_token_dir(n))
+			m_stream.error("Expected no further token");
+		size_t depth = 0;
+		while (true) {
+			if (n == nullptr)
+				m_stream.error("Expected token");
+			if (Token::is_op(n, Token::Op::Sharp)) {
+				if (next_token_dir(n)) {
+					const char* (Pp::*dir)(void);
+					{
+						token_nter(nn, n);
+						if (!m_dirs.resolve(nn, dir))
+							m_stream.error("Unknown directive");
+					}
+					if (dir == &Pp::ifdef || dir == &Pp::ifndef)
+						depth++;
+					else if (dir == &Pp::endif) {
+						if (depth == 0)
+							break;
+						depth--;
+					} else if (dir == &Pp::delse) {
+						if (depth == 0)
+							m_stream.error("#else after #else");
+					}
+					while (next_token_dir(n));
+					goto after_polling;
+				}
+			}
+			n = next_token();
+			after_polling:;
+		}
+		if (next_token_dir(n))
+			m_stream.error("Expected no further token");
+		return n;
+	}
+
+	inline const char* endif(void)
+	{
+		const char *n;
+		if (next_token_dir(n))
+			m_stream.error("Expected no further token");
+		if (m_cond_level == 0)
+			m_stream.error("Uncoherent");
+		m_cond_level--;
+		return n;
 	}
 
 public:

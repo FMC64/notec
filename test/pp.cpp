@@ -411,3 +411,31 @@ test_case(pp_27)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_28)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f",
+R"raw(
+	#define mac
+	#ifdef mac
+		g
+		#ifdef wut
+			err
+		#else
+			o
+		#endif
+	#else
+		err
+	#endif
+	e
+)raw"
+);
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "g");
+	next_assert(p, Token::Type::Identifier, "o");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
