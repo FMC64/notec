@@ -356,6 +356,7 @@ private:
 		static inline constexpr uint8_t macro = 0;
 		static inline constexpr uint8_t tok = 1;
 		static inline constexpr uint8_t arg = 2;
+		static inline constexpr uint8_t end = 3;
 	};
 
 	void tok_skip(const char *&n);
@@ -482,6 +483,8 @@ private:
 		return true;
 	}
 
+	bool m_reached_end = false;
+
 	inline bool arg(char *entry, const char *&res)
 	{
 		auto off = load<uint16_t>(entry);
@@ -496,11 +499,20 @@ private:
 		return true;
 	}
 
+	inline bool end(char *entry, const char *&res)
+	{
+		static_cast<void>(entry);
+		m_reached_end = true;
+		res = nullptr;
+		return true;
+	}
+
 	using stack_t = bool (Pp::*)(char *entry, const char *&res);
 	static inline constexpr stack_t stacks[] = {
 		&Pp::macro,	// 0
 		&Pp::tok,	// 1
-		&Pp::arg	// 2
+		&Pp::arg,	// 2
+		&Pp::end	// 3
 	};
 
 	inline bool stack_poll(char *entry, const char *&res)

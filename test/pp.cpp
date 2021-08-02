@@ -389,6 +389,17 @@ test_case(pp_26)
 	test_assert(p.next() == nullptr);
 }
 
+test_case(pp_26_nh)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "\"abc \" \" e f g\"");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::StringLiteral, "abc  e f g");
+	test_assert(p.next() == nullptr);
+}
+
 test_case(pp_27)
 {
 	Pp p;

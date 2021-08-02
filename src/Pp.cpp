@@ -350,7 +350,7 @@ const char* Pp::next_base(void)
 						break;
 				}
 			} while (m_stack > m_stack_base);
-			if (n == nullptr)
+			if (n == nullptr && !m_reached_end)
 				n = next_token();
 		} else
 			n = next_token();
@@ -380,7 +380,7 @@ const char* Pp::next_base(void)
 							char nc[size];
 							for (uint8_t i = 0; i < size; i++)	// save macro name
 								nc[i] = n[i];
-							n = next();
+							n = next_base();
 							if (n != nullptr && Token::is_op(n, Token::Op::LPar)) {	// call initiated, arguments must be in order
 								char stack_base[stack_size];	// dedicated stack for macro invocation, not to mess up actual stack with in-building call
 								char *stack = stack_base;
@@ -392,7 +392,7 @@ const char* Pp::next_base(void)
 								size_t depth = 1;
 								size_t count = 1;
 								while (true) {
-									n = next();
+									n = next_base();
 									if (n == nullptr)
 										m_stream.error("Expected token");
 									if (Token::type(n) == Token::Type::Operator) {
@@ -454,13 +454,18 @@ const char* Pp::next_base(void)
 								if (n != nullptr) {	// push non lpar next token
 									token_copy(nc, n);	// copy token before pushing it to stack (might be located on top)
 									n = nc;
-									if (m_stack + 3 + sizeof(nc) > m_stack_base + stack_size)
+									if (m_stack + 4 + sizeof(nc) > m_stack_base + stack_size)
 										m_stream.error("Macro stack overflow");
 									*m_stack++ = StackFrameType::tok;
 									*m_stack++ = 0;	// is TokType::end when already substitued
 									for (uint8_t i = 0; i < sizeof(nc); i++)
 										*m_stack++ = *n++;
 									m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
+								} else {
+									if (m_stack + 3 > m_stack_base + stack_size)
+										m_stream.error("Macro stack overflow");
+									*m_stack++ = StackFrameType::end;
+									m_stack += store(m_stack, static_cast<uint16_t>(3));
 								}
 								if (m_stack + size > m_stack_base + stack_size)
 									m_stream.error("Macro stack overflow");
@@ -511,6 +516,11 @@ const char* Pp::next(void)
 			for (uint8_t i = 0; i < sizeof(nc); i++)
 				*m_stack++ = *n++;
 			m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
+		} else {
+			if (m_stack + 3 > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*m_stack++ = StackFrameType::end;
+			m_stack += store(m_stack, static_cast<uint16_t>(3));
 		}
 		auto s = static_cast<uint8_t>(stack - stack_base);
 		if (m_stack + s > m_stack_base + stack_size)
