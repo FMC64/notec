@@ -1,26 +1,6 @@
 #include "Pp.hpp"
 
-char* Pp::next_token(void)
-{
-	return _next_token();
-}
-
-char* Pp::next_token_include(void)
-{
-	return _next_token<true>();
-}
-
-bool Pp::next_token_dir(char* &res)
-{
-	return _next_token_dir(res);
-}
-
-bool Pp::next_token_dir_include(char* &res)
-{
-	return _next_token_dir<true>(res);
-}
-
-Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last)
+Pp::TokPoll Pp::define_add_token(const char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last)
 {
 	auto size = Token::whole_size(n);
 	if (Token::type(n) == Token::Type::Identifier) {
@@ -119,7 +99,7 @@ Pp::TokPoll Pp::define_add_token(char *&n, bool has_va, size_t arg_count, const 
 			auto bo = m_size - 1;
 			for (size_t i = 0; i < size; i++)
 				m_buffer[bo - i] = m_buffer[bo - i - 2];
-			n[0] = TokType::spat;
+			m_buffer[last] = TokType::spat;
 			uint8_t count = 1;
 			TokPoll res;
 			while (true) {

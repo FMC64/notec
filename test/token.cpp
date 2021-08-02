@@ -31,13 +31,10 @@ static Token::Stream init_file(StrStream::Buffer &&buf)
 	return res;
 }
 
-static void next_assert(Token::Stream &toks, Type exp_type, const char *exp, bool use_include = false)
+static void next_assert(Token::Stream &toks, Type exp_type, const char *exp)
 {
 	char *n;
-	if (use_include)
-		n = toks.next_include();
-	else
-		n = toks.next();
+	n = toks.next();
 	if (n == nullptr)
 		throw "Expected token, got nothing";
 	test_assert(static_cast<Type>(n[0]) == exp_type);
@@ -264,7 +261,9 @@ test_case(token_17)
 test_case(token_18)
 {
 	auto toks = init_file("<cstdio>");
-	next_assert(toks, Type::StringSysInclude, "cstdio", true);
+	next_assert_op(toks, Type::Operator, Op::Less);
+	next_assert(toks, Type::Identifier, "cstdio");
+	next_assert_op(toks, Type::Operator, Op::Greater);
 	test_assert(toks.next() == nullptr);
 	toks.get_stream().close();
 }

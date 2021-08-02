@@ -770,11 +770,6 @@ class Stream
 		return adv_str('\"', Type::StringLiteral);
 	}
 
-	inline bool adv_string_sys_include(void)
-	{
-		return adv_str('>', Type::StringSysInclude);
-	}
-
 	inline bool adv_value_char_8(void)
 	{
 		adv_str('\'', Type::ValueChar8);
@@ -793,7 +788,7 @@ class Stream
 		&Stream::adv_number_literal,	// 0
 		&Stream::adv_identifier,	// 1
 		&Stream::adv_string_literal,	// 2
-		&Stream::adv_string_sys_include,	// 3
+		nullptr,	// 3
 		&Stream::adv_operator,		// 4
 		&Stream::adv_value_char_8,	// 5
 		nullptr,	// 6
@@ -836,18 +831,6 @@ private:
 	char m_stack_base[stack_size];
 	char *m_stack;
 
-	inline bool skip_blank(void)
-	{
-		adv_wspace();
-		while (*m_i == Char::eob) {
-			if (!feed_buf())
-				return false;
-			m_i = m_buf;
-			adv_wspace();
-		}
-		return true;
-	}
-
 	inline char* gather_type(Type type)
 	{
 		if (adv_i(type)) {
@@ -877,7 +860,6 @@ public:
 	}
 
 	char* next(void);
-	char* next_include(void);
 
 	inline ::Stream& get_stream(void)
 	{

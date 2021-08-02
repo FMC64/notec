@@ -70,21 +70,15 @@ bool Stream::adv_str(char delim, Type type)
 
 char* Stream::next(void)
 {
-	if (!skip_blank())
-		return nullptr;
+	adv_wspace();
+	while (*m_i == Char::eob) {
+		if (!feed_buf())
+			return nullptr;
+		m_i = m_buf;
+		adv_wspace();
+	}
 	m_res = m_i;
 	return gather_type(tok_type(*m_res));
-}
-
-char* Stream::next_include(void)
-{
-	if (!skip_blank())
-		return nullptr;
-	m_res = m_i;
-	auto type = tok_type(*m_res);
-	if (*m_res == '<')
-		type = Type::StringSysInclude;
-	return gather_type(type);
 }
 
 }

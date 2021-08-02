@@ -68,15 +68,11 @@ private:
 			m_stream.error("Bad token type");
 	}
 
-	template <bool IsInclude = false>
-	inline char* _next_token(void)
+	inline const char* next_token(void)
 	{
 		while (true) {
 			char *res;
-			if constexpr (IsInclude)
-				res = m_stream.next_include();
-			else
-				res = m_stream.next();
+			res = m_stream.next();
 			if (res != nullptr)
 				return res;
 			if (!m_stream.pop())
@@ -84,34 +80,43 @@ private:
 		}
 	}
 
-	char* next_token(void);
-	char* next_token_include(void);
-
-	template <bool IsInclude = false>
-	inline bool _next_token_dir(char* &res)
+	inline bool next_token_dir(const char* &res)
 	{
 		auto lrow = m_stream.get_row();
 		auto lstack = m_stream.get_stack();
-		res = _next_token<IsInclude>();
+		res = next_token();
 		if (lrow != m_stream.get_row())
 			if (!m_stream.get_line_escaped() || lstack != m_stream.get_stack())
 				return false;
 		return res != nullptr;
 	}
 
-	bool next_token_dir(char* &res);
-	bool next_token_dir_include(char* &res);
-
 	inline const char* include(void)
 	{
-		char *n;
-		if (!next_token_dir_include(n))
+		const char *n;
+		if (!next_token_dir(n))
 			m_stream.error("Expected string");
 		assert_token(n);
 		auto t = Token::type(n);
-		if (t != Token::Type::StringLiteral && t != Token::Type::StringSysInclude)
+		if (t == Token::Type::StringLiteral)
+			m_stream.push(n);
+		else if (Token::is_op(n, Token::Op::Less)) {
+			char stack_base[stack_size];
+			auto stack = stack_base;
+			*stack++ = static_cast<char>(Token::Type::StringSysInclude);
+			auto s = stack++;
+			auto base = stack;
+			while (true) {
+				if (!next_token_dir(n))
+					m_stream.error("Expected token");
+				if (Token::is_op(n, Token::Op::Greater))
+					break;
+				tok_str(n, stack, stack_base + stack_size, nullptr);
+			}
+			*s = static_cast<uint8_t>(stack - base);
+			m_stream.push(stack_base);
+		} else
 			m_stream.error("Expected string");
-		m_stream.push(n);
 		token_nter(sn, m_stream.get_file_sign());
 		if (m_ponce.resolve(sn))
 			m_stream.pop();
@@ -151,7 +156,7 @@ private:
 		Dont = 1,
 		End = 2
 	};
-	TokPoll define_add_token(char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last);
+	TokPoll define_add_token(const char *&n, bool has_va, size_t arg_count, const char *args, const char *arg_top, size_t last);
 
 	inline bool define_is_tok_spattable_ll(const char *token)
 	{
@@ -168,7 +173,7 @@ private:
 
 	inline const char* define(void)
 	{
-		char *n;
+		const char *n;
 		if (!next_token_dir(n))
 			m_stream.error("Expected token");
 		assert_token_type(n, Token::Type::Identifier);
@@ -262,7 +267,7 @@ private:
 	// doesn't seem worth extra code for now and macros already fairly slim
 	inline const char* undef(void)
 	{
-		char *n;
+		const char *n;
 		if (!next_token_dir(n))
 			m_stream.error("Expected token");
 		assert_token_type(n, Token::Type::Identifier);
@@ -283,7 +288,7 @@ private:
 
 	inline const char* pragma(void)
 	{
-		char *n;
+		const char *n;
 		if (next_token_dir(n)) {
 			if (Token::type(n) == Token::Type::Identifier) {
 				if (streq(n + 1, once)) {
@@ -300,7 +305,7 @@ private:
 
 	inline const char* line(void)
 	{
-		char *n;
+		const char *n;
 		if (!next_token_dir(n))
 			m_stream.error("Expected token");
 		if (Token::type(n) != Token::Type::NumberLiteral)
@@ -333,7 +338,7 @@ private:
 
 	inline const char* directive(void)
 	{
-		char *n;
+		const char *n;
 		if (!next_token_dir(n))
 			return n;
 		assert_token_type(n, Token::Type::Identifier);
