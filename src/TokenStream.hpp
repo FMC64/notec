@@ -947,7 +947,8 @@ public:
 				m_error = "File stack overflow";
 				throw;
 			}
-			*m_stack++ = static_cast<uint8_t>(m_stack - base + 2);
+			auto s = static_cast<uint8_t>(m_stack - base + 2);
+			*m_stack++ = s;
 			*m_stack++ = 0;
 		}
 
