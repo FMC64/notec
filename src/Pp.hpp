@@ -586,6 +586,26 @@ private:
 
 	const char* next_base(void);
 
+	inline void push_stream_token(const char *n)
+	{
+		if (n == nullptr) {
+			if (m_stack + 3 > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*m_stack++ = StackFrameType::end;
+			m_stack += store(m_stack, static_cast<uint16_t>(3));
+		} else {
+			token_copy(nc, n);	// copy token before pushing it to stack (might be located on top)
+			n = nc;
+			if (m_stack + 4 + sizeof(nc) > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*m_stack++ = StackFrameType::tok;
+			*m_stack++ = 0;	// is TokType::end when already substitued
+			for (uint8_t i = 0; i < sizeof(nc); i++)
+				*m_stack++ = *n++;
+			m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
+		}
+	}
+
 public:
 	const char* next(void);
 };
