@@ -138,6 +138,12 @@ static inline bool is_op(const char *token, Op op)
 			*d++ = *s++;				\
 	}
 
+#define token_copy(id, src) char id[Token::whole_size(src)];	\
+	{							\
+		for (uint8_t i = 0; i < sizeof(id); i++)	\
+			id[i] = src[i];				\
+	}
+
 // [0] size, [1...size] data
 static inline bool streq(const char *a, const char *b)
 {

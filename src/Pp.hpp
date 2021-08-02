@@ -573,6 +573,8 @@ private:
 		return t_time;
 	}
 
+	const char* next_base(void);
+
 public:
 	const char* next(void);
 };

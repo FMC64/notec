@@ -335,7 +335,7 @@ void Pp::tok_str(const char *&n, char *&c, const char *c_top, const char *args)
 	}
 }
 
-const char* Pp::next(void)
+const char* Pp::next_base(void)
 {
 	while (true) {
 		const char *n;
@@ -452,22 +452,19 @@ const char* Pp::next(void)
 								goto pushed;
 							} else {	// invocation failed return macro name
 								if (n != nullptr) {	// push non lpar next token
-									auto size = Token::whole_size(n);
-									char nc[size];
-									for (uint8_t i = 0; i < size; i++)	// copy token before pushing it to stack (might be located on top)
-										nc[i] = n[i];
+									token_copy(nc, n);	// copy token before pushing it to stack (might be located on top)
 									n = nc;
-									if (m_stack + 3 + size > m_stack_base + stack_size)
+									if (m_stack + 3 + sizeof(nc) > m_stack_base + stack_size)
 										m_stream.error("Macro stack overflow");
 									*m_stack++ = StackFrameType::tok;
 									*m_stack++ = 0;	// is TokType::end when already substitued
-									for (uint8_t i = 0; i < size; i++)
+									for (uint8_t i = 0; i < sizeof(nc); i++)
 										*m_stack++ = *n++;
-									m_stack += store(m_stack, static_cast<uint16_t>(4 + size));
+									m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
 								}
 								if (m_stack + size > m_stack_base + stack_size)
 									m_stream.error("Macro stack overflow");
-								for (uint8_t i = 0; i < size; i++)	// store macro name in stack top for return value
+								for (uint8_t i = 0; i < sizeof(nc); i++)	// store macro name in stack top for return value
 									m_stack[i] = nc[i];
 								return m_stack;
 							}
@@ -479,4 +476,47 @@ const char* Pp::next(void)
 		}
 		pushed:;	// path for new stack entry but no immediate token generation to return
 	}
+}
+
+const char* Pp::next(void)
+{
+	auto n = next_base();
+	if (n != nullptr && Token::type(n) == Token::Type::StringLiteral) {
+		char stack_base[stack_size];
+		auto stack = stack_base;
+		*stack++ = static_cast<char>(Token::Type::StringLiteral);
+		{
+			auto &sb = *stack++;
+			while (true) {
+				auto s = Token::size(n);
+				if (stack + s > stack_base + stack_size)
+					m_stream.error("String stack overflow");
+				sb += s;
+				auto d = Token::data(n);
+				for (uint8_t i = 0; i < s; i++)
+					*stack++ = *d++;
+				n = next_base();
+				if (n == nullptr || Token::type(n) != Token::Type::StringLiteral)
+					break;
+			}
+		}
+		if (n != nullptr) {	// push next token
+			token_copy(nc, n);	// copy token before pushing it to stack (might be located on top)
+			n = nc;
+			if (m_stack + 3 + sizeof(nc) > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*m_stack++ = StackFrameType::tok;
+			*m_stack++ = 0;	// becomes TokType::end after substitution
+			for (uint8_t i = 0; i < sizeof(nc); i++)
+				*m_stack++ = *n++;
+			m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
+		}
+		auto s = static_cast<uint8_t>(stack - stack_base);
+		if (m_stack + s > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		for (uint8_t i = 0; i < s; i++)
+			m_stack[i] = stack_base[i];
+		return m_stack;
+	} else
+		return n;
 }

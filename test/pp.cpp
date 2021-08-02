@@ -376,3 +376,15 @@ test_case(pp_25)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_26)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "\"abc \" \" e f g\" h");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::StringLiteral, "abc  e f g");
+	next_assert(p, Token::Type::Identifier, "h");
+	test_assert(p.next() == nullptr);
+}
