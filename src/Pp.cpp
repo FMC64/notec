@@ -487,6 +487,7 @@ const char* Pp::next(void)
 		*stack++ = static_cast<char>(Token::Type::StringLiteral);
 		{
 			auto &sb = *stack++;
+			sb = 0;
 			while (true) {
 				auto s = Token::size(n);
 				if (stack + s > stack_base + stack_size)
