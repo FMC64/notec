@@ -94,7 +94,7 @@ public:
 			m_buf.data = new char[e.size];
 			std::memcpy(m_buf.data, e.data, e.size);
 			if (stack_top != nullptr) {
-				*stack++ = filepath[0];
+				*stack++ = static_cast<char>(Token::Type::StringLiteral);
 				*stack++ = size;
 				for (uint8_t i = 0; i < size; i++)
 					*stack++ = str[i];
