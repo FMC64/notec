@@ -537,10 +537,10 @@ private:
 		auto base = n;
 		auto l = m_stream.get_row();
 		while (l > 0) {
-			if (m_stack + 1 > m_stack_base + stack_size)
+			s++;
+			if (m_stack + 2 + s > m_stack_base + stack_size)
 				m_stream.error("Macro stack overflow");
 			*n++ = static_cast<char>(l % 10) + '0';
-			s++;
 			l /= 10;
 		}
 		auto h = s / 2;

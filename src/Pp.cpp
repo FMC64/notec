@@ -473,6 +473,10 @@ const char* Pp::next(void)
 							} else {	// invocation failed return macro name
 								if (n != nullptr) {	// push non lpar next token
 									auto size = Token::whole_size(n);
+									char nc[size];
+									for (uint8_t i = 0; i < size; i++)	// copy token before pushing it to stack (might be located on top)
+										nc[i] = n[i];
+									n = nc;
 									if (m_stack + 3 + size > m_stack_base + stack_size)
 										m_stream.error("Macro stack overflow");
 									*m_stack++ = StackFrameType::tok;
