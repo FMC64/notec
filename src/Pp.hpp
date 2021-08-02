@@ -9,6 +9,7 @@ class Pp
 {
 	Token::Stream m_stream;
 	StrMap::BlockGroup m_dirs;
+	StrMap::BlockGroup m_ponce;
 
 public:
 	inline Pp(void)
@@ -17,6 +18,8 @@ public:
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
 		PP_DIRECTIVE_NEXT(undef);
+		PP_DIRECTIVE_NEXT(error);
+		PP_DIRECTIVE_NEXT(pragma);
 		#undef PP_DIRECTIVE_NEXT
 		m_stack = m_stack_base;
 	}
@@ -97,6 +100,9 @@ private:
 		if (t != Token::Type::StringLiteral && t != Token::Type::StringSysInclude)
 			m_stream.error("Expected string");
 		m_stream.push(n);
+		token_nter(sn, m_stream.get_file_sign());
+		if (m_ponce.resolve(sn))
+			m_stream.pop();
 		return next_token();
 	}
 
@@ -251,7 +257,32 @@ private:
 		token_nter(nn, n);
 		m_macros.remove(nn);
 		if (next_token_dir(n))
-			m_stream.error("Expected only one token");
+			m_stream.error("Expected no further token");
+		return n;
+	}
+
+	inline const char* error(void)
+	{
+		m_stream.error("#error");
+		__builtin_unreachable();
+	}
+
+	static inline constexpr auto once = make_cstr("once");
+
+	inline const char* pragma(void)
+	{
+		char *n;
+		if (next_token_dir(n)) {
+			if (Token::type(n) == Token::Type::Identifier) {
+				if (streq(n + 1, once)) {
+					auto sign = m_stream.get_file_sign();
+					token_nter(sn, sign);
+					m_ponce.insert(sn);
+				}
+				if (next_token_dir(n))
+					m_stream.error("Expected no further token");
+			}
+		}
 		return n;
 	}
 

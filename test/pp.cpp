@@ -336,3 +336,17 @@ test_case(pp_22)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_23)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(2);
+	s.add_file("f", "#include <f2>\ne");
+	s.add_file("f2", "#pragma once\na\n#include <f2>\nb");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "a");
+	next_assert(p, Token::Type::Identifier, "b");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}

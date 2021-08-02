@@ -956,6 +956,11 @@ public:
 		m_row = 0;
 	}
 
+	inline const char* get_file_sign(void) const
+	{
+		return m_stack - 1 - static_cast<uint8_t>(m_stack[-1]);
+	}
+
 	inline bool pop(void)
 	{
 		m_stream.close();
@@ -968,7 +973,7 @@ public:
 		m_row = load_part<2, size_t>(m_stack);
 		m_stack -= 3;
 		m_off = load_part<3, size_t>(m_stack);
-		auto filepath = m_stack - 1 - m_stack[-1];
+		auto filepath = get_file_sign();
 		if (!m_stream.open(filepath, m_stack, nullptr)) {
 			m_error = filepath;
 			throw;

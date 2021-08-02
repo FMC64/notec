@@ -63,6 +63,10 @@ T load_part(const char *src)
 template <typename T, size_t Size>
 struct carray
 {
+	operator const char*(void) const
+	{
+		return data;
+	}
 	static constexpr auto size(void) { return Size; }
 	T data[Size];
 };
