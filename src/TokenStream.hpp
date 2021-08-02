@@ -943,28 +943,55 @@ public:
 			throw;
 		}
 		{
-			auto size = static_cast<uint8_t>(m_stack - base);
-			if (m_stack + size + 1 > m_stack_base + stack_size) {
+			if (m_stack + 2 > m_stack_base + stack_size) {
 				m_error = "File stack overflow";
 				throw;
 			}
-			*m_stack++ = size;
+			*m_stack++ = static_cast<uint8_t>(m_stack - base + 2);
+			*m_stack++ = 0;
 		}
 
 		reset_buf();
 		m_off = 0;
-		m_row = 0;
+		m_row = 1;
+	}
+
+	inline const char* get_file_path(void) const
+	{
+		return m_stack - static_cast<uint8_t>(m_stack[-2]);
+	}
+
+	inline void set_file_alias(const char *token)
+	{
+		m_stack = const_cast<char*>(get_file_sign());
+		auto fs = Token::whole_size(m_stack);
+		m_stack += fs;
+		*m_stack++ = static_cast<uint8_t>(fs + 1);
+		auto s = Token::whole_size(token);
+		for (uint8_t i = 0; i < s; i++)
+			*m_stack++ = token[i];
+		*m_stack++ = static_cast<uint8_t>(s + 2);
+		*m_stack++ = 1;
 	}
 
 	inline const char* get_file_sign(void) const
 	{
-		return m_stack - 1 - static_cast<uint8_t>(m_stack[-1]);
+		if (m_stack[-1]) {
+			auto add_off = static_cast<uint8_t>(m_stack[-2]);
+			return m_stack - add_off - static_cast<uint8_t>(m_stack[-add_off - 1]);
+		} else
+			return m_stack - static_cast<uint8_t>(m_stack[-2]);
+	}
+
+	inline void set_line(size_t ll_l)
+	{
+		m_row = ll_l;
 	}
 
 	inline bool pop(void)
 	{
 		m_stream.close();
-		m_stack -= 1 + m_stack[-1];
+		m_stack = const_cast<char*>(get_file_sign());
 		if (m_stack == m_stack_base)
 			return false;
 
@@ -980,11 +1007,6 @@ public:
 		}
 		m_stream.seek(m_off);
 		return true;
-	}
-
-	inline const char* get_cur(void)
-	{
-		return m_stack - (1 + static_cast<uint8_t>(m_stack[-1]));
 	}
 
 	inline const char* get_stack(void)	// only to check if stack has been modified or not

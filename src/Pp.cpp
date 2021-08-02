@@ -383,7 +383,10 @@ const char* Pp::next(void)
 				if (Token::type(n) == Token::Type::Identifier) {
 					token_nter(nn, n);
 					uint16_t ndx;
-					if (m_macros.resolve(nn, ndx)) {
+					const char* (Pp::*im)(void);
+					if (m_idirs.resolve(nn, im))
+						n = (this->*im)();
+					else if (m_macros.resolve(nn, ndx)) {
 						if (m_buffer[ndx] == 0) {	// simple macro substitution, no args needed
 							if (m_stack + 6 > m_stack_base + stack_size)
 								m_stream.error("Macro stack overflow");

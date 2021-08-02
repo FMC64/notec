@@ -161,3 +161,14 @@ static inline constexpr auto make_cstr(const char (&str)[Size])
 		res.data[1 + i] = str[i];
 	return res;
 }
+
+template <size_t Size>
+static inline constexpr auto make_tstr(Token::Type type, const char (&str)[Size])
+{
+	auto res = carray<char, Size + 1>();
+	res.data[0] = static_cast<char>(type);
+	res.data[1] = static_cast<uint8_t>(Size - 1);
+	for (size_t i = 0; i < (Size - 1); i++)
+		res.data[2 + i] = str[i];
+	return res;
+}

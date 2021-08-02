@@ -9,6 +9,7 @@ class Pp
 {
 	Token::Stream m_stream;
 	StrMap::BlockGroup m_dirs;
+	StrMap::BlockGroup m_idirs;
 	StrMap::BlockGroup m_ponce;
 
 public:
@@ -20,8 +21,19 @@ public:
 		PP_DIRECTIVE_NEXT(undef);
 		PP_DIRECTIVE_NEXT(error);
 		PP_DIRECTIVE_NEXT(pragma);
+		PP_DIRECTIVE_NEXT(line);
 		#undef PP_DIRECTIVE_NEXT
 		m_stack = m_stack_base;
+
+		#define PP_IDIRECTIVE_NEXT(name, id) m_idirs.insert(name, &Pp::id)
+		PP_IDIRECTIVE_NEXT("__cplusplus", i__cplusplus);
+		PP_IDIRECTIVE_NEXT("__DATE__", i__DATE__);
+		PP_IDIRECTIVE_NEXT("__FILE__", i__FILE__);
+		PP_IDIRECTIVE_NEXT("__LINE__", i__LINE__);
+		PP_IDIRECTIVE_NEXT("__STDC_HOSTED__", i__STDC_HOSTED__);
+		PP_IDIRECTIVE_NEXT("__STDCPP_DEFAULT_NEW_ALIGNMENT__", i__STDCPP_DEFAULT_NEW_ALIGNMENT__);
+		PP_IDIRECTIVE_NEXT("__TIME__", i__TIME__);
+		#undef PP_DIRECTIVE_NEXT
 	}
 	inline ~Pp(void)
 	{
@@ -286,6 +298,39 @@ private:
 		return n;
 	}
 
+	inline const char* line(void)
+	{
+		char *n;
+		if (!next_token_dir(n))
+			m_stream.error("Expected token");
+		if (Token::type(n) != Token::Type::NumberLiteral)
+			m_stream.error("Expected number");
+		size_t l = 0;
+		{
+			auto s = Token::size(n);
+			auto d = Token::data(n);
+			size_t w = 1;
+			for (uint8_t i = 0; i < s; i++) {
+				uint8_t ir = s - 1 - i;
+				auto c = d[ir];
+				if (!Token::Char::is_digit(c))
+					m_stream.error("Expected only digits");
+				l += static_cast<size_t>(static_cast<uint8_t>(c - '0')) * w;
+				w *= 10;
+			}
+			l--;	// cancel directive linefeed
+		}
+		m_stream.set_line(l);
+		if (!next_token_dir(n))
+			return n;
+		if (Token::type(n) != Token::Type::StringLiteral)
+			m_stream.error("Expected string");
+		m_stream.set_file_alias(n);
+		if (next_token_dir(n))
+			m_stream.error("Expected no further token");
+		return n;
+	}
+
 	inline const char* directive(void)
 	{
 		char *n;
@@ -457,6 +502,70 @@ private:
 	inline bool stack_poll(char *entry, const char *&res)
 	{
 		return (this->*stacks[*entry])(entry + 1, res);
+	}
+
+	static inline constexpr auto t_cplusplus = make_tstr(Token::Type::NumberLiteral, "202002L");
+	static inline constexpr auto t_date = make_tstr(Token::Type::StringLiteral, "May 27 2000");
+	static inline constexpr auto t_stdc_hosted = make_tstr(Token::Type::NumberLiteral, "0");
+	static inline constexpr auto t_stdcpp_default_new_alignment = make_tstr(Token::Type::NumberLiteral, "4");
+	static inline constexpr auto t_time = make_tstr(Token::Type::StringLiteral, "12:00:00");
+
+	inline const char* i__cplusplus(void)
+	{
+		return t_cplusplus;
+	}
+
+	inline const char* i__DATE__(void)
+	{
+		return t_date;
+	}
+
+	inline const char* i__FILE__(void)
+	{
+		return m_stream.get_file_path();
+	}
+
+	inline const char* i__LINE__(void)
+	{
+		if (m_stack + 2 > m_stack_base + stack_size)
+			m_stream.error("Macro stack overflow");
+		auto res = m_stack;
+		auto n = res;
+		*n++ = static_cast<char>(Token::Type::NumberLiteral);
+		auto &s = reinterpret_cast<uint8_t&>(*n++);
+		s = 0;
+		auto base = n;
+		auto l = m_stream.get_row();
+		while (l > 0) {
+			if (m_stack + 1 > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			*n++ = static_cast<char>(l % 10) + '0';
+			s++;
+			l /= 10;
+		}
+		auto h = s / 2;
+		for (uint8_t i = 0; i < h; i++) {
+			auto ir = s - 1 - i;
+			auto tmp = base[i];
+			base[i] = base[ir];
+			base[ir] = tmp;
+		}
+		return res;
+	}
+
+	inline const char* i__STDC_HOSTED__(void)
+	{
+		return t_stdc_hosted;
+	}
+
+	inline const char* i__STDCPP_DEFAULT_NEW_ALIGNMENT__(void)
+	{
+		return t_stdcpp_default_new_alignment;
+	}
+
+	inline const char* i__TIME__(void)
+	{
+		return t_time;
 	}
 
 public:

@@ -350,3 +350,29 @@ test_case(pp_23)
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_24)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#line 96 \"abc\"\n__FILE__ __LINE__ e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::StringLiteral, "abc");
+	next_assert(p, Token::Type::NumberLiteral, "96");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_25)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#line 65935\n__FILE__ __LINE__ e");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::StringLiteral, "f");
+	next_assert(p, Token::Type::NumberLiteral, "65935");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
