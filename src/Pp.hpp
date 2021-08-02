@@ -245,7 +245,6 @@ private:
 				}
 		} else {	// zero token macro
 			m_buffer[m_size++] = 0;	// zero args
-			n = next_token();
 		}
 		alloc(1);
 		m_buffer[m_size++] = TokType::end;
