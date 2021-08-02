@@ -394,8 +394,9 @@ test_case(pp_27)
 	Pp p;
 	auto &s = p.get_stream();
 	s.set_file_count(1);
-	s.add_file("f", "#define mac\nmac e");
+	s.add_file("f", "#define mac\na mac e");
 	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "a");
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
