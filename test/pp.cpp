@@ -461,10 +461,54 @@ test_case(pp_30)
 	s.set_file_count(1);
 	s.add_file("f",
 R"raw(
-	#if 1 + 2 * 3 + 6 * 2 == 19 && 19 == 1 + 2 * 3 + 6 * 2
+	#if 1 + 2 * 3 + 6 * 2 == 19 && 19 == 1 + 2 * 3 + 6 * 2 + sample_undef
 		g
 	#else
 		err
+	#endif
+	e
+)raw"
+);
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "g");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_31)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f",
+R"raw(
+	#define mac
+	#if defined(mac)
+		g
+	#else
+		err
+	#endif
+	e
+)raw"
+);
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "g");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_32)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f",
+R"raw(
+	#define mac
+	#if !defined mac
+		err
+	#else
+		g
 	#endif
 	e
 )raw"

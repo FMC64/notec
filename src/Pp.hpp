@@ -829,6 +829,10 @@ private:
 		return gval(n, has_some, v);
 	}
 
+	static inline constexpr auto tdefined = make_cstr("defined");
+	static inline constexpr auto ttrue = make_cstr("true");
+	//static inline constexpr auto tfalse = make_cstr("false");
+
 	inline Val gval_s(const char *&n, bool &has_some)
 	{
 		if (!next_token_dir_exp(n))
@@ -862,6 +866,31 @@ private:
 			return parse_nlit(n);
 		else if (t == Token::Type::ValueChar8)
 			return Val{static_cast<uint32_t>(static_cast<int32_t>(n[1])), true};
+		else if (t == Token::Type::Identifier) {
+			if (streq(n + 1, tdefined)) {
+				if (!next_token_dir(n))
+					m_stream.error("Expected token");
+				bool has_par = false;
+				if (Token::is_op(n, Token::Op::LPar)) {
+					has_par = true;
+					if (!next_token_dir(n))
+						m_stream.error("Expected token");
+				}
+				assert_token_type(n, Token::Type::Identifier);
+				token_nter(nn, n);
+				auto r = Val{m_macros.resolve(nn), true};
+				if (has_par) {
+					if (!next_token_dir_exp(n))
+						m_stream.error("Expected )");
+					if (!Token::is_op(n, Token::Op::RPar))
+						m_stream.error("Expected )");
+				}
+				return r;
+			} else if (streq(n + 1, ttrue)) {
+				return Val{1, true};
+			}
+			return Val{0, true};
+		}
 		m_stream.error("Bad token");
 		__builtin_unreachable();
 	}
