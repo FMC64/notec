@@ -76,30 +76,45 @@ private:
 	inline const char* next_token(void)
 	{
 		while (true) {
-			char *res;
+			const char *res;
 			res = m_stream.next();
 			if (res != nullptr)
 				return res;
-			if (!m_stream.pop())
+			if (m_stream.pop()) {
+				if (next_token_dir_exp(res))
+					m_stream.error("Expected no futher token");
+				return res;
+			} else
 				return nullptr;
 		}
 	}
 
-	inline bool next_token_dir(const char* &res)
+	template <auto PollMet>
+	inline bool _next_token_dir(const char *&res)
 	{
 		auto lrow = m_stream.get_row();
 		auto lstack = m_stream.get_stack();
-		res = next_token();
+		res = (this->*PollMet)();
 		if (lrow != m_stream.get_row())
 			if (!m_stream.get_line_escaped() || lstack != m_stream.get_stack())
 				return false;
 		return res != nullptr;
 	}
 
+	inline bool next_token_dir(const char* &res)
+	{
+		return _next_token_dir<&Pp::next_token>(res);
+	}
+
+	inline bool next_token_dir_exp(const char* &res)
+	{
+		return _next_token_dir<&Pp::next_base>(res);
+	}
+
 	inline const char* include(void)
 	{
 		const char *n;
-		if (!next_token_dir(n))
+		if (!next_token_dir_exp(n))
 			m_stream.error("Expected string");
 		assert_token(n);
 		auto t = Token::type(n);
@@ -112,7 +127,7 @@ private:
 			auto s = stack++;
 			auto base = stack;
 			while (true) {
-				if (!next_token_dir(n))
+				if (!next_token_dir_exp(n))
 					m_stream.error("Expected token");
 				if (Token::is_op(n, Token::Op::Greater))
 					break;
@@ -310,7 +325,7 @@ private:
 	inline const char* line(void)
 	{
 		const char *n;
-		if (!next_token_dir(n))
+		if (!next_token_dir_exp(n))
 			m_stream.error("Expected token");
 		if (Token::type(n) != Token::Type::NumberLiteral)
 			m_stream.error("Expected number");
@@ -330,12 +345,12 @@ private:
 			l--;	// cancel directive linefeed
 		}
 		m_stream.set_line(l);
-		if (!next_token_dir(n))
+		if (!next_token_dir_exp(n))
 			return n;
 		if (Token::type(n) != Token::Type::StringLiteral)
 			m_stream.error("Expected string");
 		m_stream.set_file_alias(n);
-		if (next_token_dir(n))
+		if (next_token_dir_exp(n))
 			m_stream.error("Expected no further token");
 		return n;
 	}

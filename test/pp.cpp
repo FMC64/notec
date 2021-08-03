@@ -35,7 +35,7 @@ test_case(pp_0)
 	Pp p;
 	auto &s = p.get_stream();
 	s.set_file_count(2);
-	s.add_file("f", "a #include <f2> b");
+	s.add_file("f", "a #include <f2>\n b");
 	s.add_file("f2", "c");
 	p.open(dummy_name);
 	next_assert(p, Token::Type::Identifier, "a");
@@ -49,7 +49,7 @@ test_case(pp_1)
 	Pp p;
 	auto &s = p.get_stream();
 	s.set_file_count(2);
-	s.add_file("f", "a #include\n<f2> b");
+	s.add_file("f", "a #include\n<f2>\n b");
 	s.add_file("f2", "c");
 	catch (p.get_tstream()) {
 		p.get_stream().close();
@@ -68,7 +68,7 @@ test_case(pp_2)
 	Pp p;
 	auto &s = p.get_stream();
 	s.set_file_count(2);
-	s.add_file("f", "a #include \\\n<f2> b");
+	s.add_file("f", "a #include \\\n<f2> \\\n \n b");
 	s.add_file("f2", "c");
 	p.open(dummy_name);
 	next_assert(p, Token::Type::Identifier, "a");
@@ -437,5 +437,19 @@ R"raw(
 	next_assert(p, Token::Type::Identifier, "g");
 	next_assert(p, Token::Type::Identifier, "o");
 	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_29)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(2);
+	s.add_file("f", "#define to_inc <f2>\n a #include to_inc\n b");
+	s.add_file("f2", "c");
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "a");
+	next_assert(p, Token::Type::Identifier, "c");
+	next_assert(p, Token::Type::Identifier, "b");
 	test_assert(p.next() == nullptr);
 }
