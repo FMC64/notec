@@ -461,7 +461,7 @@ test_case(pp_30)
 	s.set_file_count(1);
 	s.add_file("f",
 R"raw(
-	#if 1 + 2
+	#if (1 + 2 * 3 + 6 * 2) == 19
 		g
 	#else
 		err

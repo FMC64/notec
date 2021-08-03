@@ -747,7 +747,8 @@ private:
 	{
 		Token::Op op;
 		uint8_t prec;
-		uint32_t (*comp)(uint32_t a, uint32_t b, bool is_s);
+		using Comp = uint32_t (uint32_t a, uint32_t b, bool is_s);
+		Comp *comp;
 	};
 
 	#define PP_IMPL_OP(id, op) \
@@ -816,7 +817,19 @@ private:
 		{Token::Op::Or, 12, op_or}
 	};
 
-	Val gval_s(const char *&n, bool &end_reached)
+	inline Val gval_b(const char *&n, bool &has_some)
+	{
+		auto v = gval_s(n, has_some);
+		if (!has_some)
+			return v;
+		if (!next_token_dir_exp(n)) {
+			has_some = false;
+			return v;
+		}
+		return gval(n, has_some, v);
+	}
+
+	inline Val gval_s(const char *&n, bool &has_some)
 	{
 		if (!next_token_dir_exp(n))
 			m_stream.error("Expected token");
@@ -824,30 +837,25 @@ private:
 		if (t == Token::Type::Operator) {
 			auto o = Token::op(n);
 			if (o == Token::Op::LPar) {
-				auto r = gval(n, 255);
-				if (!next_token_dir_exp(n))
+				auto r = gval_b(n, has_some);
+				if (!has_some)
 					m_stream.error("Expected token");
 				if (!Token::is_op(n, Token::Op::RPar))
 					m_stream.error("Expected )");
-				end_reached = true;
 				return r;
 			} else if (o == Token::Op::Plus) {
-				end_reached = true;
-				return gval(n, 2);
+				return gval_b(n, has_some);
 			} else if (o == Token::Op::Minus) {
-				auto r = gval(n, 2);
+				auto r = gval_b(n, has_some);
 				r.v = -r.v;
-				end_reached = true;
 				return r;
 			} else if (o == Token::Op::Not) {
-				auto r = gval(n, 2);
+				auto r = gval_b(n, has_some);
 				r.v = !r.v;
-				end_reached = true;
 				return r;
 			} else if (o == Token::Op::Tilde) {
-				auto r = gval(n, 2);
+				auto r = gval_b(n, has_some);
 				r.v = ~r.v;
-				end_reached = true;
 				return r;
 			}
 		} else if (t == Token::Type::NumberLiteral)
@@ -858,42 +866,55 @@ private:
 		__builtin_unreachable();
 	}
 
-	inline OpDesc find_od(Token::Op op)
+	inline bool find_od(Token::Op op, OpDesc &od)
 	{
 		for (size_t i = 0; i < array_size(op_descs); i++)
-			if (op_descs[i].op == op)
-				return op_descs[i];
-		m_stream.error("Unknown operator");
-		__builtin_unreachable();
+			if (op_descs[i].op == op) {
+				od = op_descs[i];
+				return true;
+			}
+		return false;
 	}
 
-	Val gval(const char *&n, uint8_t prec)
+	inline bool find_od(const char *&n, OpDesc &od)
 	{
-		bool er = false;
-		auto a = gval_s(n, er);
-		while (!er && next_token_dir_exp(n)) {
-			auto t = Token::type(n);
-			if (t != Token::Type::Operator)
-				m_stream.error("Expected operator");
-			auto o = find_od(Token::op(n));
-			Val b;
-			if (prec > o.prec) {
-				b = gval(n, o.prec);
-				er = true;
-			} else
-				b = gval_s(n, er);
-			if (!a.is_s || !b.is_s) {
-				a.is_s = false;
-				b.is_s = false;
+		auto t = Token::type(n);
+		if (t == Token::Type::Operator)
+			return find_od(Token::op(n), od);
+		return false;
+	}
+
+	Val gval(const char *&n, bool &has_some, Val v, uint8_t prec = 255)
+	{
+		OpDesc o;
+		while (has_some && find_od(n, o)) {
+			if (o.prec > prec)
+				break;
+			auto b = gval_s(n, has_some);
+			if (!next_token_dir_exp(n))
+				has_some = false;
+			while (has_some) {
+				OpDesc o2;
+				if (!find_od(n, o2))
+					break;
+				if (o2.prec > o.prec)
+					break;
+				b = gval(n, has_some, b, prec - 1);
 			}
-			a.v = o.comp(a.v, b.v, a.is_s);
+			if (!v.is_s || !b.is_s)
+				v.is_s = false;
+			v.v = o.comp(v.v, b.v, v.is_s);
 		}
-		return a;
+		return v;
 	}
 
 	bool eval(const char *&n)
 	{
-		return gval(n, 255).v != 0;
+		bool has_some = true;
+		auto v = gval_b(n, has_some);
+		if (has_some)
+			m_stream.error("Expected no further token");
+		return v.v != 0;
 	}
 
 	struct FindBlockBan {
