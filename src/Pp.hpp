@@ -899,7 +899,7 @@ private:
 					break;
 				if (o2.prec >= o.prec)
 					break;
-				b = gval(n, has_some, b, prec - 1);
+				b = gval(n, has_some, b, o.prec);
 			}
 			if (!v.is_s || !b.is_s)
 				v.is_s = false;
