@@ -897,7 +897,7 @@ private:
 				OpDesc o2;
 				if (!find_od(n, o2))
 					break;
-				if (o2.prec > o.prec)
+				if (o2.prec >= o.prec)
 					break;
 				b = gval(n, has_some, b, prec - 1);
 			}
