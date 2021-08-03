@@ -885,10 +885,7 @@ private:
 
 	bool eval(const char *&n)
 	{
-		auto res = gval(n, 255).v != 0;
-		if (next_token_dir_exp(n))
-			m_stream.error("Expected no further token");
-		return res;
+		return gval(n, 255).v != 0;
 	}
 
 	struct FindBlockBan {
