@@ -36,6 +36,7 @@ public:
 		PP_DIRECTIVE_NEXT_V("if", dif);
 		PP_DIRECTIVE_NEXT(ifdef);
 		PP_DIRECTIVE_NEXT(ifndef);
+		PP_DIRECTIVE_NEXT(elif);
 		PP_DIRECTIVE_NEXT_V("else", delse);
 		PP_DIRECTIVE_NEXT(endif);
 		#undef PP_DIRECTIVE_NEXT
@@ -655,8 +656,13 @@ private:
 		return false;
 	}
 
-	// if is_nmatch_if is false, we are in a found elif or else (end of current block)
-	inline const char* dfind_block(bool is_nmatch_if, const char *n)
+	struct FindBlockBan {
+		static inline constexpr size_t none = 0;
+		static inline constexpr size_t elif = 1;
+		static inline constexpr size_t delse = 2;
+	};
+
+	inline const char* dfind_block(size_t ban, const char *n)
 	{
 		size_t depth = 0;
 		while (true) {
@@ -672,16 +678,26 @@ private:
 					}
 					if (dir == &Pp::ifdef || dir == &Pp::ifndef || dir == &Pp::dif)
 						depth++;
-					else if (dir == &Pp::endif) {
-						if (depth == 0)
-							break;
-						depth--;
+					else if (dir == &Pp::elif) {
+						if (depth == 0) {
+							if (ban == FindBlockBan::delse)
+								m_stream.error("#elif after #else");
+							if (ban == FindBlockBan::none) {
+								if (eval(n))
+									return n;
+								goto after_polling;
+							}
+						}
 					} else if (dir == &Pp::delse) {
 						if (depth == 0) {
-							if (!is_nmatch_if)
+							if (ban == FindBlockBan::delse)
 								m_stream.error("#else after #else");
 							break;
 						}
+					} else if (dir == &Pp::endif) {
+						if (depth == 0)
+							break;
+						depth--;
 					}
 					while (next_token_dir(n));
 					goto after_polling;
@@ -699,7 +715,7 @@ private:
 	{
 		m_cond_level++;
 		if (!match)
-			n = dfind_block(true, n);
+			n = dfind_block(FindBlockBan::none, n);
 		return n;
 	}
 
@@ -737,13 +753,20 @@ private:
 		return ifdef_gen(true);
 	}
 
+	inline const char* elif(void)
+	{
+		const char *n;
+		while (next_token_dir(n));
+		return dfind_block(FindBlockBan::elif, n);
+	}
+
 	// we reached end of if or elif block
 	inline const char* delse(void)
 	{
 		const char *n;
 		if (next_token_dir(n))
 			m_stream.error("Expected no further token");
-		return dfind_block(false, n);
+		return dfind_block(FindBlockBan::delse, n);
 	}
 
 	inline const char* endif(void)
