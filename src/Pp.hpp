@@ -982,7 +982,8 @@ private:
 						if (depth == 0) {
 							if (ban == FindBlockBan::delse)
 								m_stream.error("#else after #else");
-							break;
+							if (ban == FindBlockBan::none)
+								break;
 						}
 					} else if (dir == &Pp::endif) {
 						if (depth == 0)
