@@ -9,8 +9,18 @@ class Pp
 {
 	Token::Stream m_stream;
 	StrMap::BlockGroup m_dirs;
-	StrMap::BlockGroup m_idirs;
 	StrMap::BlockGroup m_ponce;
+
+	static inline constexpr size_t pmacro_count = 7;
+	static inline constexpr const char *pmacros_names[pmacro_count] = {
+		"__cplusplus",
+		"__DATE__",
+		"__FILE__",
+		"__LINE__",
+		"__STDC_HOSTED__",
+		"__STDCPP_DEFAULT_NEW_ALIGNMENT__",
+		"__TIME__"
+	};
 
 public:
 	inline Pp(void)
@@ -30,15 +40,12 @@ public:
 		#undef PP_DIRECTIVE_NEXT
 		m_stack = m_stack_base;
 
-		#define PP_IDIRECTIVE_NEXT(name, id) m_idirs.insert(name, &Pp::id)
-		PP_IDIRECTIVE_NEXT("__cplusplus", i__cplusplus);
-		PP_IDIRECTIVE_NEXT("__DATE__", i__DATE__);
-		PP_IDIRECTIVE_NEXT("__FILE__", i__FILE__);
-		PP_IDIRECTIVE_NEXT("__LINE__", i__LINE__);
-		PP_IDIRECTIVE_NEXT("__STDC_HOSTED__", i__STDC_HOSTED__);
-		PP_IDIRECTIVE_NEXT("__STDCPP_DEFAULT_NEW_ALIGNMENT__", i__STDCPP_DEFAULT_NEW_ALIGNMENT__);
-		PP_IDIRECTIVE_NEXT("__TIME__", i__TIME__);
-		#undef PP_DIRECTIVE_NEXT
+		alloc(pmacro_count);
+		for (size_t i = 0; i < array_size(pmacros_names); i++) {
+			auto c = m_size++;
+			m_macros.insert(pmacros_names[i], static_cast<uint16_t>(c));
+			m_buffer[c] = c + 1;	// 0 is reserved for regular macro
+		}
 	}
 	inline ~Pp(void)
 	{
@@ -201,7 +208,8 @@ private:
 		size_t base_size = m_size;
 		bool suc_ins = m_macros.insert(nn, static_cast<uint16_t>(m_size));
 		auto name_off = m_stream.get_off();
-		alloc(1);
+		alloc(2);
+		m_buffer[m_size++] = 0;	// regular macro
 		if (next_token_dir(n)) {	// arguments or tokens
 			char args[define_arg_size];
 			char *arg_top = args;
@@ -603,6 +611,18 @@ private:
 	{
 		return t_time;
 	}
+
+	using pmac_t = const char* (Pp::*)(void);
+	static inline constexpr pmac_t pmacros[1 + pmacro_count] = {
+		nullptr,		// regular macro
+		&Pp::i__cplusplus,	// 0
+		&Pp::i__DATE__,		// 1
+		&Pp::i__FILE__,		// 2
+		&Pp::i__LINE__,		// 3
+		&Pp::i__STDC_HOSTED__,		// 4
+		&Pp::i__STDCPP_DEFAULT_NEW_ALIGNMENT__,		// 5
+		&Pp::i__TIME__		// 6
+	};
 
 	const char* next_base(void);
 
