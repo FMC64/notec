@@ -37,9 +37,9 @@ ifndef SH_ELF_CXX
 	$(error "SH_ELF_CXX must be defined for cross-compilation.$nYou can still build 'test' target for running unit local tests")
 endif
 $(OUT_ELF): CXX = $(SH_ELF_CXX)
-$(OUT_ELF): CXXFLAGS_EXTRA = -Wno-builtin-declaration-mismatch -fno-exceptions -fno-rtti -m3 -mb -mrenesas -nostdlib
+$(OUT_ELF): CXXFLAGS_EXTRA = -Wno-builtin-declaration-mismatch -fno-exceptions -fno-rtti -m3 -mb -mrenesas -ffreestanding -nostdlib
 $(OUT_ELF): check_sh_elf_cxx $(OUT_ALL_OBJ)
-	$(CXX) $(CXXFLAGS) $(OUT_ALL_OBJ) -T lnk/notec.ld lnk/crt0.s -o $(OUT_ELF) -lfx
+	$(CXX) $(CXXFLAGS) $(OUT_ALL_OBJ) -T lnk/notec.ld lnk/crt0.s -o $(OUT_ELF) -lfx -lgcc
 
 $(OUT_BIN): $(OUT_ELF)
 	sh-elf-objcopy -R .comment -R .bss -O binary $(OUT_ELF) $(OUT_BIN)
