@@ -33,6 +33,7 @@ public:
 		PP_DIRECTIVE_NEXT(error);
 		PP_DIRECTIVE_NEXT(pragma);
 		PP_DIRECTIVE_NEXT(line);
+		PP_DIRECTIVE_NEXT_V("if", dif);
 		PP_DIRECTIVE_NEXT(ifdef);
 		PP_DIRECTIVE_NEXT(ifndef);
 		PP_DIRECTIVE_NEXT_V("else", delse);
@@ -648,6 +649,67 @@ private:
 
 	size_t m_cond_level = 0;
 
+	bool eval(const char *&n)
+	{
+		n = nullptr;
+		return false;
+	}
+
+	// if is_nmatch_if is false, we are in a found elif or else (end of current block)
+	inline const char* dfind_block(bool is_nmatch_if, const char *n)
+	{
+		size_t depth = 0;
+		while (true) {
+			if (n == nullptr)
+				m_stream.error("Expected token");
+			if (Token::is_op(n, Token::Op::Sharp)) {
+				if (next_token_dir(n)) {
+					const char* (Pp::*dir)(void);
+					{
+						token_nter(nn, n);
+						if (!m_dirs.resolve(nn, dir))
+							m_stream.error("Unknown directive");
+					}
+					if (dir == &Pp::ifdef || dir == &Pp::ifndef || dir == &Pp::dif)
+						depth++;
+					else if (dir == &Pp::endif) {
+						if (depth == 0)
+							break;
+						depth--;
+					} else if (dir == &Pp::delse) {
+						if (depth == 0) {
+							if (!is_nmatch_if)
+								m_stream.error("#else after #else");
+							break;
+						}
+					}
+					while (next_token_dir(n));
+					goto after_polling;
+				}
+			}
+			n = next_token();
+			after_polling:;
+		}
+		if (next_token_dir(n))
+			m_stream.error("Expected no further token");
+		return n;
+	}
+
+	inline const char* dif_find_block(bool match, const char *n)
+	{
+		m_cond_level++;
+		if (!match)
+			n = dfind_block(true, n);
+		return n;
+	}
+
+	inline const char* dif(void)
+	{
+		const char *n;
+		auto m = eval(n);
+		return dif_find_block(m, n);
+	}
+
 	inline const char* ifdef_gen(bool seek_undef)
 	{
 		const char *n;
@@ -662,41 +724,7 @@ private:
 		}
 		if (next_token_dir(n))
 			m_stream.error("Expected no further token");
-		m_cond_level++;
-		if (!match) {
-			size_t depth = 0;
-			while (true) {
-				if (n == nullptr)
-					m_stream.error("Expected token");
-				if (Token::is_op(n, Token::Op::Sharp)) {
-					if (next_token_dir(n)) {
-						const char* (Pp::*dir)(void);
-						{
-							token_nter(nn, n);
-							if (!m_dirs.resolve(nn, dir))
-								m_stream.error("Unknown directive");
-						}
-						if (dir == &Pp::ifdef || dir == &Pp::ifndef)
-							depth++;
-						else if (dir == &Pp::endif) {
-							if (depth == 0)
-								break;
-							depth--;
-						} else if (dir == &Pp::delse) {
-							if (depth == 0)
-								break;
-						}
-						while (next_token_dir(n));
-						goto after_polling;
-					}
-				}
-				n = next_token();
-				after_polling:;
-			}
-			if (next_token_dir(n))
-				m_stream.error("Expected no further token");
-		}
-		return n;
+		return dif_find_block(match, n);
 	}
 
 	inline const char* ifdef(void)
@@ -715,38 +743,7 @@ private:
 		const char *n;
 		if (next_token_dir(n))
 			m_stream.error("Expected no further token");
-		size_t depth = 0;
-		while (true) {
-			if (n == nullptr)
-				m_stream.error("Expected token");
-			if (Token::is_op(n, Token::Op::Sharp)) {
-				if (next_token_dir(n)) {
-					const char* (Pp::*dir)(void);
-					{
-						token_nter(nn, n);
-						if (!m_dirs.resolve(nn, dir))
-							m_stream.error("Unknown directive");
-					}
-					if (dir == &Pp::ifdef || dir == &Pp::ifndef)
-						depth++;
-					else if (dir == &Pp::endif) {
-						if (depth == 0)
-							break;
-						depth--;
-					} else if (dir == &Pp::delse) {
-						if (depth == 0)
-							m_stream.error("#else after #else");
-					}
-					while (next_token_dir(n));
-					goto after_polling;
-				}
-			}
-			n = next_token();
-			after_polling:;
-		}
-		if (next_token_dir(n))
-			m_stream.error("Expected no further token");
-		return n;
+		return dfind_block(false, n);
 	}
 
 	inline const char* endif(void)
