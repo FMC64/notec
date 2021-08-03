@@ -9,6 +9,14 @@
 namespace Token {
 
 namespace Char {
+	static inline constexpr char lower(char c)
+	{
+		if (c >= 'A' && c <= 'Z')
+			return c + 32;
+		else
+			return c;
+	}
+
 	static inline constexpr bool is_whitespace(char c)
 	{
 		return c <= 32;

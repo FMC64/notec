@@ -650,10 +650,235 @@ private:
 
 	size_t m_cond_level = 0;
 
+	struct Val
+	{
+		uint32_t v;
+		bool is_s;
+	};
+
+	Val parse_nlit(const char *n)
+	{
+		uint32_t v = 0;
+		auto s = Token::size(n);
+		auto d = Token::data(n);
+		uint8_t i = 0;
+		auto c = d[i++];
+		if (c == '0') {
+			if (s >= 2) {
+				c = Token::Char::lower(d[i]);
+				if (c == 'b') {
+					i++;
+					while (i < s) {
+						auto c = d[i];
+						if (!(c >= '0' && c <= '1'))
+							break;
+						i++;
+						v = v * 2 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
+					}
+					if (i == 2)
+						m_stream.error("Expected at least one digit");
+					goto polled_digits;
+				} else if (c == 'x') {
+					i++;
+					while (i < s) {
+						auto c = Token::Char::lower(d[i]);
+						if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
+							break;
+						i++;
+						uint8_t d;
+						if (c >= 'a' && c <= 'f')
+							d = c - 'a' + 10;
+						else
+							d = c - '0';
+						v = v * 16 + static_cast<uint32_t>(d);
+					}
+					if (i == 2)
+						m_stream.error("Expected at least one digit");
+					goto polled_digits;
+				}
+			}
+			if (s >= 1) {
+				while (i < s) {
+					auto c = d[i];
+					if (!(c >= '0' && c <= '7'))
+						break;
+					i++;
+					v = v * 8 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
+				}
+				if (i == 1)
+					m_stream.error("Expected at least one digit");
+				goto polled_digits;
+			}
+		}
+		i = 0;
+		while (i < s) {
+			auto c = d[i];
+			if (!(c >= '0' && c <= '9'))
+				break;
+			i++;
+			v = v * 10 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
+		}
+		if (i == 0)
+			m_stream.error("Expected at least one digit");
+		polled_digits:;
+		auto left = static_cast<uint8_t>(s - i);
+		Val r{v, true};
+		if (left == 0)
+			return r;
+		if (left == 1) {
+			if (Token::Char::lower(d[i]) == 'l')
+				return r;
+			if (Token::Char::lower(d[i]) == 'u') {
+				r.is_s = false;
+				return r;
+			}
+		}
+		if (left == 2) {
+			if (Token::Char::lower(d[i]) == 'u' && Token::Char::lower(d[i + 1]) == 'l') {
+				r.is_s = false;
+				return r;
+			}
+		}
+		m_stream.error("Bad end of literal");
+		__builtin_unreachable();
+	}
+
+	struct OpDesc
+	{
+		Token::Op op;
+		uint8_t prec;
+		uint32_t (*comp)(uint32_t a, uint32_t b, bool is_s);
+	};
+
+	#define PP_IMPL_OP(id, op) \
+	static inline uint32_t op_##id(uint32_t a, uint32_t b, bool is_s)		\
+	{										\
+		if (is_s)								\
+			return static_cast<int32_t>(a) op static_cast<int32_t>(b);	\
+		else									\
+			return a op b;							\
+	}
+	PP_IMPL_OP(mul, *)
+	PP_IMPL_OP(div, /)
+	PP_IMPL_OP(mod, %)
+
+	PP_IMPL_OP(plus, +)
+	PP_IMPL_OP(minus, -)
+
+	PP_IMPL_OP(bit_left, <<)
+	PP_IMPL_OP(bit_right, >>)
+
+	PP_IMPL_OP(less, <)
+	PP_IMPL_OP(less_equal, <=)
+	PP_IMPL_OP(greater, >)
+	PP_IMPL_OP(greater_equal, >=)
+
+	PP_IMPL_OP(equal_equal, ==)
+	PP_IMPL_OP(not_equal, !=)
+
+	PP_IMPL_OP(bit_and, &)
+
+	PP_IMPL_OP(bit_xor, ^)
+
+	PP_IMPL_OP(bit_or, |)
+
+	PP_IMPL_OP(and, &&)
+	PP_IMPL_OP(or, ||)
+	#undef PP_IMPL_OP
+
+	static inline constexpr OpDesc op_descs[] = {
+		{Token::Op::Mul, 3, op_mul},
+		{Token::Op::Div, 3, op_div},
+		{Token::Op::Mod, 3, op_mod},
+
+		{Token::Op::Plus, 4, op_plus},
+		{Token::Op::Minus, 4, op_minus},
+
+		{Token::Op::BitLeft, 5, op_bit_left},
+		{Token::Op::BitRight, 5, op_bit_right},
+
+		{Token::Op::Less, 6, op_less},
+		{Token::Op::LessEqual, 6, op_less_equal},
+		{Token::Op::Greater, 6, op_greater},
+		{Token::Op::GreaterEqual, 6, op_greater_equal},
+
+		{Token::Op::EqualEqual, 7, op_equal_equal},
+		{Token::Op::NotEqual, 7, op_not_equal},
+
+		{Token::Op::BitAnd, 8, op_bit_and},
+
+		{Token::Op::BitXor, 9, op_bit_xor},
+
+		{Token::Op::BitOr, 10, op_bit_or},
+
+		{Token::Op::And, 11, op_and},
+
+		{Token::Op::Or, 12, op_or}
+	};
+
+	static inline void val_prep_op(Val &a, Val &b)
+	{
+		if (!a.is_s || !b.is_s) {
+			a.is_s = false;
+			b.is_s = false;
+		}
+	}
+
+	Val gval(const char *&n, uint8_t prec)
+	{
+		if (!next_token_dir_exp(n))
+			m_stream.error("Expected token");
+		auto t = Token::type(n);
+		if (t == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::LPar) {
+				auto r = gval(n, 255);
+				if (n == nullptr || !Token::is_op(n, Token::Op::RPar))
+					m_stream.error("Expected )");
+				return r;
+			} else if (o == Token::Op::Plus) {
+				return gval(n, 2);
+			} else if (o == Token::Op::Minus) {
+				auto r = gval(n, 2);
+				r.v = -r.v;
+				return r;
+			} else if (o == Token::Op::Not) {
+				auto r = gval(n, 2);
+				r.v = !r.v;
+				return r;
+			} else if (o == Token::Op::Tilde) {
+				auto r = gval(n, 2);
+				r.v = ~r.v;
+				return r;
+			} else
+				m_stream.error("Unknown operator");
+		}
+		Val v;
+		if (t == Token::Type::NumberLiteral)
+			v = parse_nlit(n);
+		else if (t == Token::Type::ValueChar8)
+			v = Val{static_cast<uint32_t>(static_cast<int32_t>(n[1])), true};
+		else
+			m_stream.error("Bad token");
+		while (next_token_dir_exp(n)) {
+			t = Token::type(n);
+			if (t != Token::Type::Operator)
+				m_stream.error("Expected operator");
+			auto o = Token::op(n);
+			OpDesc od;
+			for (size_t i = 0; i < array_size(op_descs); i++)
+				if (op_descs[i].op == o) {
+					od = op_descs[i];
+					goto op_found;
+				}
+			return v;
+			op_found:;
+		}
+	}
+
 	bool eval(const char *&n)
 	{
-		n = nullptr;
-		return false;
+		gval(n, 255).v != 0;
 	}
 
 	struct FindBlockBan {
