@@ -816,7 +816,7 @@ private:
 		{Token::Op::Or, 12, op_or}
 	};
 
-	Val gval_s(const char *&n)
+	Val gval_s(const char *&n, bool &end_reached)
 	{
 		if (!next_token_dir_exp(n))
 			m_stream.error("Expected token");
@@ -829,20 +829,25 @@ private:
 					m_stream.error("Expected token");
 				if (!Token::is_op(n, Token::Op::RPar))
 					m_stream.error("Expected )");
+				end_reached = true;
 				return r;
 			} else if (o == Token::Op::Plus) {
+				end_reached = true;
 				return gval(n, 2);
 			} else if (o == Token::Op::Minus) {
 				auto r = gval(n, 2);
 				r.v = -r.v;
+				end_reached = true;
 				return r;
 			} else if (o == Token::Op::Not) {
 				auto r = gval(n, 2);
 				r.v = !r.v;
+				end_reached = true;
 				return r;
 			} else if (o == Token::Op::Tilde) {
 				auto r = gval(n, 2);
 				r.v = ~r.v;
+				end_reached = true;
 				return r;
 			}
 		} else if (t == Token::Type::NumberLiteral)
@@ -855,8 +860,9 @@ private:
 
 	Val gval(const char *&n, uint8_t prec)
 	{
-		auto a = gval_s(n);
-		while (next_token_dir_exp(n)) {
+		bool er = false;
+		auto a = gval_s(n, er);
+		while (!er && next_token_dir_exp(n)) {
 			auto t = Token::type(n);
 			if (t != Token::Type::Operator)
 				m_stream.error("Expected operator");
@@ -870,10 +876,11 @@ private:
 			m_stream.error("Unknown operator");
 			op_found:;
 			Val b;
-			if (prec > od.prec)
+			if (prec > od.prec) {
 				b = gval(n, od.prec);
-			else
-				b = gval_s(n);
+				er = true;
+			} else
+				b = gval_s(n, er);
 			if (!a.is_s || !b.is_s) {
 				a.is_s = false;
 				b.is_s = false;

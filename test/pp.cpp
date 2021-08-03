@@ -461,7 +461,7 @@ test_case(pp_30)
 	s.set_file_count(1);
 	s.add_file("f",
 R"raw(
-	#if 1
+	#if 1 + 2
 		g
 	#else
 		err
