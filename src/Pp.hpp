@@ -705,7 +705,7 @@ private:
 					i++;
 					v = v * 8 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
 				}
-				if (i == 1)
+				if (i == 0)
 					m_stream.error("Expected at least one digit");
 				goto polled_digits;
 			}
@@ -816,15 +816,7 @@ private:
 		{Token::Op::Or, 12, op_or}
 	};
 
-	static inline void val_prep_op(Val &a, Val &b)
-	{
-		if (!a.is_s || !b.is_s) {
-			a.is_s = false;
-			b.is_s = false;
-		}
-	}
-
-	Val gval(const char *&n, uint8_t prec)
+	Val gval_s(const char *&n)
 	{
 		if (!next_token_dir_exp(n))
 			m_stream.error("Expected token");
@@ -833,7 +825,9 @@ private:
 			auto o = Token::op(n);
 			if (o == Token::Op::LPar) {
 				auto r = gval(n, 255);
-				if (n == nullptr || !Token::is_op(n, Token::Op::RPar))
+				if (!next_token_dir_exp(n))
+					m_stream.error("Expected token");
+				if (!Token::is_op(n, Token::Op::RPar))
 					m_stream.error("Expected )");
 				return r;
 			} else if (o == Token::Op::Plus) {
@@ -850,18 +844,20 @@ private:
 				auto r = gval(n, 2);
 				r.v = ~r.v;
 				return r;
-			} else
-				m_stream.error("Unknown operator");
-		}
-		Val v;
-		if (t == Token::Type::NumberLiteral)
-			v = parse_nlit(n);
+			}
+		} else if (t == Token::Type::NumberLiteral)
+			return parse_nlit(n);
 		else if (t == Token::Type::ValueChar8)
-			v = Val{static_cast<uint32_t>(static_cast<int32_t>(n[1])), true};
-		else
-			m_stream.error("Bad token");
+			return Val{static_cast<uint32_t>(static_cast<int32_t>(n[1])), true};
+		m_stream.error("Bad token");
+		__builtin_unreachable();
+	}
+
+	Val gval(const char *&n, uint8_t prec)
+	{
+		auto a = gval_s(n);
 		while (next_token_dir_exp(n)) {
-			t = Token::type(n);
+			auto t = Token::type(n);
 			if (t != Token::Type::Operator)
 				m_stream.error("Expected operator");
 			auto o = Token::op(n);
@@ -871,14 +867,28 @@ private:
 					od = op_descs[i];
 					goto op_found;
 				}
-			return v;
+			m_stream.error("Unknown operator");
 			op_found:;
+			Val b;
+			if (prec > od.prec)
+				b = gval(n, od.prec);
+			else
+				b = gval_s(n);
+			if (!a.is_s || !b.is_s) {
+				a.is_s = false;
+				b.is_s = false;
+			}
+			a.v = od.comp(a.v, b.v, a.is_s);
 		}
+		return a;
 	}
 
 	bool eval(const char *&n)
 	{
-		gval(n, 255).v != 0;
+		auto res = gval(n, 255).v != 0;
+		if (next_token_dir_exp(n))
+			m_stream.error("Expected no further token");
+		return res;
 	}
 
 	struct FindBlockBan {
