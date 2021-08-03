@@ -858,6 +858,15 @@ private:
 		__builtin_unreachable();
 	}
 
+	inline OpDesc find_od(Token::Op op)
+	{
+		for (size_t i = 0; i < array_size(op_descs); i++)
+			if (op_descs[i].op == op)
+				return op_descs[i];
+		m_stream.error("Unknown operator");
+		__builtin_unreachable();
+	}
+
 	Val gval(const char *&n, uint8_t prec)
 	{
 		bool er = false;
@@ -866,18 +875,10 @@ private:
 			auto t = Token::type(n);
 			if (t != Token::Type::Operator)
 				m_stream.error("Expected operator");
-			auto o = Token::op(n);
-			OpDesc od;
-			for (size_t i = 0; i < array_size(op_descs); i++)
-				if (op_descs[i].op == o) {
-					od = op_descs[i];
-					goto op_found;
-				}
-			m_stream.error("Unknown operator");
-			op_found:;
+			auto o = find_od(Token::op(n));
 			Val b;
-			if (prec > od.prec) {
-				b = gval(n, od.prec);
+			if (prec > o.prec) {
+				b = gval(n, o.prec);
 				er = true;
 			} else
 				b = gval_s(n, er);
@@ -885,7 +886,7 @@ private:
 				a.is_s = false;
 				b.is_s = false;
 			}
-			a.v = od.comp(a.v, b.v, a.is_s);
+			a.v = o.comp(a.v, b.v, a.is_s);
 		}
 		return a;
 	}
