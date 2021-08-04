@@ -747,17 +747,17 @@ private:
 	{
 		Token::Op op;
 		uint8_t prec;
-		using Comp = uint32_t (uint32_t a, uint32_t b, bool is_s);
+		using Comp = Val (Val a, Val b, Val payload);
 		Comp *comp;
 	};
 
 	#define PP_IMPL_OP(id, op) \
-	static inline uint32_t op_##id(uint32_t a, uint32_t b, bool is_s)		\
-	{										\
-		if (is_s)								\
-			return static_cast<int32_t>(a) op static_cast<int32_t>(b);	\
-		else									\
-			return a op b;							\
+	static inline Val op_##id(Val a, Val b, Val)						\
+	{												\
+		if (!a.is_s || !b.is_s)									\
+			return Val{a.v op b.v, false};							\
+		else											\
+			return Val{static_cast<uint32_t>(static_cast<int32_t>(a.v) op static_cast<int32_t>(b.v)), true};	\
 	}
 	PP_IMPL_OP(mul, *)
 	PP_IMPL_OP(div, /)
@@ -787,6 +787,18 @@ private:
 	PP_IMPL_OP(or, ||)
 	#undef PP_IMPL_OP
 
+	static inline Val op_huh(Val a, Val b, Val payload)
+	{
+		if (!payload.v || !b.v) {
+			payload.v = false;
+			b.v = false;
+		}
+		if (a.v)
+			return payload;
+		else
+			return b;
+	}
+
 	static inline constexpr OpDesc op_descs[] = {
 		{Token::Op::Mul, 3, op_mul},
 		{Token::Op::Div, 3, op_div},
@@ -814,7 +826,9 @@ private:
 
 		{Token::Op::And, 11, op_and},
 
-		{Token::Op::Or, 12, op_or}
+		{Token::Op::Or, 12, op_or},
+
+		{Token::Op::Huh, 13, op_huh}
 	};
 
 	inline Val gval_b(const char *&n, bool &has_some)
@@ -913,12 +927,20 @@ private:
 		return false;
 	}
 
-	Val gval(const char *&n, bool &has_some, Val v, uint8_t prec = 255)
+	inline Val gval(const char *&n, bool &has_some, Val v, uint8_t prec = 255)
 	{
 		OpDesc o;
 		while (has_some && find_od(n, o)) {
 			if (o.prec > prec)
 				break;
+			Val payload;
+			if (o.op == Token::Op::Huh) {
+				payload = gval_b(n, has_some);
+				if (!has_some)
+					m_stream.error("Expected :");
+				if (!Token::is_op(n, Token::Op::Colon))
+					m_stream.error("Expected :");
+			}
 			auto b = gval_s(n, has_some);
 			if (!next_token_dir_exp(n))
 				has_some = false;
@@ -930,9 +952,7 @@ private:
 					break;
 				b = gval(n, has_some, b, o.prec);
 			}
-			if (!v.is_s || !b.is_s)
-				v.is_s = false;
-			v.v = o.comp(v.v, b.v, v.is_s);
+			v = o.comp(v, b, payload);
 		}
 		return v;
 	}

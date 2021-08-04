@@ -546,3 +546,45 @@ R"raw(
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_34)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f",
+R"raw(
+	#if 1 ? 4 * 5 - 20 : 1
+		err
+	#else
+		g
+	#endif
+	e
+)raw"
+);
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "g");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
+
+test_case(pp_35)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f",
+R"raw(
+	#if (0 ? 4 * 5 - 20 : 7 - (4 + 3) ? 8 + 16 : 43) == 43
+		err
+	#else
+		g
+	#endif
+	e
+)raw"
+);
+	p.open(dummy_name);
+	next_assert(p, Token::Type::Identifier, "g");
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}
