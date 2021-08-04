@@ -849,10 +849,11 @@ private:
 				feed_buf();
 				type = static_cast<Type>(static_cast<char>(type) & type_range);
 				adv_i(type);	// type & range is continuous
-				if (*m_i == Char::eob && !m_stream.eof()) {
-					m_error = "Max token size is 96";
-					throw;
-				}
+				if (*m_i == Char::eob)
+					if (feed_buf()) {
+						m_error = "Max token size is 96";
+						throw;
+					}
 			}
 			m_res[-1] = static_cast<uint8_t>(m_i - m_res);
 			m_res[-2] = static_cast<char>(type) & 0x07;

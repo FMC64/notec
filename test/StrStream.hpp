@@ -67,11 +67,6 @@ public:
 		return to_read;
 	}
 
-	bool eof(void) const
-	{
-		return m_ndx >= m_buf.size;
-	}
-
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
 	bool open(const char *filepath, char *&stack, const char *stack_top)

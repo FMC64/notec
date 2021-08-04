@@ -11,11 +11,6 @@ public:
 		return 0;
 	}
 
-	bool eof(void) const
-	{
-		return true;
-	}
-
 	bool open(const char *filepath, char *&stack, const char *stack_top)
 	{
 		return true;
