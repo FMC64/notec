@@ -3,7 +3,7 @@
 #include "cint.hpp"
 #include <fxlib.h>
 
-static void tactical_exit(const char *msg)
+static inline void tactical_exit(const char *msg)
 {
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>(msg));

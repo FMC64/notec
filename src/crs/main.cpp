@@ -2,6 +2,15 @@
 #include "Pp.hpp"
 #include <fxlib.h>
 
+extern "C" {
+
+void strncmp(void)
+{
+	tactical_exit("dummy strncmp actually called");
+}
+
+}
+
 int main(void)
 {
 	Pp p;

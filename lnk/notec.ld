@@ -13,7 +13,7 @@ SECTIONS
         } > rom
         .rodata : {
                 *(.rodata)
-                *(.rodata.str1.4)
+                *(.rodata.*)
                 _romdata = . ;  /* symbol for initialization data */
         } > rom
         .bss : {
