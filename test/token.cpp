@@ -85,7 +85,6 @@ test_case(token_0)
 	next_assert(toks, Type::Identifier, "b");
 	next_assert(toks, Type::Identifier, "c");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_1)
@@ -99,7 +98,6 @@ test_case(token_1)
 	next_assert(toks, Type::NumberLiteral, "0.2e10");
 	next_assert(toks, Type::NumberLiteral, ".2e10");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_2)
@@ -107,7 +105,6 @@ test_case(token_2)
 	auto toks = init_file("+");
 	next_assert_op(toks, Type::Operator, Op::Plus);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_3)
@@ -115,7 +112,6 @@ test_case(token_3)
 	auto toks = init_file("++");
 	next_assert_op(toks, Type::Operator, Op::PlusPlus);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_4)
@@ -123,7 +119,6 @@ test_case(token_4)
 	auto toks = init_file("...");
 	next_assert_op(toks, Type::Operator, Op::Expand);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_5)
@@ -131,7 +126,6 @@ test_case(token_5)
 	auto toks = init_file("<<=");
 	next_assert_op(toks, Type::Operator, Op::BitLeftEqual);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_6)
@@ -141,7 +135,6 @@ test_case(token_6)
 	next_assert_op(toks, Type::Operator, Op::Point);
 	next_assert_op(toks, Type::Operator, Op::Point);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_7)
@@ -150,7 +143,6 @@ test_case(token_7)
 	test_assert(toks.get_off() == 0);
 	while (toks.next());
 	test_assert(toks.get_row() == 3);
-	toks.get_stream().close();
 }
 
 test_case(token_8)
@@ -171,7 +163,6 @@ test_case(token_8)
 	next_assert(toks, Type::Identifier, "a");
 	next_assert_op(toks, Type::Operator, Op::TWComp);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_9)
@@ -179,7 +170,6 @@ test_case(token_9)
 	auto toks = init_file("\"abc\"  ");
 	next_assert(toks, Type::StringLiteral, "abc");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_10)
@@ -187,7 +177,6 @@ test_case(token_10)
 	auto toks = init_file("\'g\'  ");
 	next_assert_char(toks, Type::ValueChar8, 'g');
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_11)
@@ -196,7 +185,6 @@ test_case(token_11)
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "efg");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_12)
@@ -205,7 +193,6 @@ test_case(token_12)
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "efg");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_13)
@@ -217,7 +204,6 @@ test_case(token_13)
 	next_assert_op(toks, Type::Operator, Op::DoubleSharp);
 	next_assert(toks, Type::Identifier, "efg");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_14)
@@ -226,23 +212,19 @@ test_case(token_14)
 		auto toks = init_file(read_file("./src/TokenStream.hpp"));
 		while (toks.next());
 		test_assert(toks.get_error() == nullptr);
-		toks.get_stream().close();
 	}
 	{
 		auto toks = init_file(read_file("./src/Pp.hpp"));
 		while (toks.next());
 		test_assert(toks.get_error() == nullptr);
-		toks.get_stream().close();
 	}
 }
 
 test_case(token_15)
 {
 	auto toks = init_file("'aa'");
-	catch(toks) {
-		toks.get_stream().close();
+	catch(toks)
 		return;
-	}
 	toks.next();
 	test_assert(false);
 }
@@ -253,7 +235,6 @@ test_case(token_16)
 	auto toks = init_file("a // abc \\\ndef\ng");
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "g");
-	toks.get_stream().close();
 }
 
 
@@ -263,7 +244,6 @@ test_case(token_17)
 	next_assert(toks, Type::Identifier, "a");
 	next_assert(toks, Type::Identifier, "def");
 	test_assert(toks.get_line_escaped());
-	toks.get_stream().close();
 }
 
 test_case(token_18)
@@ -273,7 +253,6 @@ test_case(token_18)
 	next_assert(toks, Type::Identifier, "cstdio");
 	next_assert_op(toks, Type::Operator, Op::Greater);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_19)
@@ -305,7 +284,6 @@ test_case(token_21)
 	auto toks = init_file("->*");
 	next_assert_op(toks, Type::Operator, Op::ArrowMember);
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }
 
 test_case(token_22)
@@ -313,5 +291,4 @@ test_case(token_22)
 	auto toks = init_file("\"abc\\xFF\\77\"  ");
 	next_assert(toks, Type::StringLiteral, "abc\xFF\77");
 	test_assert(toks.next() == nullptr);
-	toks.get_stream().close();
 }

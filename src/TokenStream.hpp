@@ -911,6 +911,11 @@ public:
 		m_buf = m_buf_raw + 2 + max_token_size;
 		m_stack = m_stack_base;
 	}
+	inline ~Stream(void)
+	{
+		if (m_stack > m_stack_base)
+			while (pop());
+	}
 
 	char* next(void);
 
