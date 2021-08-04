@@ -849,8 +849,8 @@ private:
 				feed_buf();
 				type = static_cast<Type>(static_cast<char>(type) & type_range);
 				adv_i(type);	// type & range is continuous
-				if (*m_i == Char::eob)
-					if (feed_buf()) {
+				if (*m_i == Char::eob && m_i == m_buf + buf_size)	// don't check overflow when eob before end of buffer (means eof has been reached)
+					if (feed_buf()) {	// if we still have more characters to go, we've reached the limit
 						m_error = "Max token size is 96";
 						throw;
 					}
