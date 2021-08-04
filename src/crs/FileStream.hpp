@@ -27,6 +27,8 @@ public:
 		return s;
 	}
 
+	// stack contains ptr for opened file signature or opening error
+	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
 	inline bool open(const char *filepath, char *&stack, const char *stack_top)
 	{
 		return true;

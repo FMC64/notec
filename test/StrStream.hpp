@@ -13,12 +13,9 @@ class StrStream
 public:
 	struct Buffer
 	{
-		size_t size = 0;
-		char *data = nullptr;
+		size_t size;
+		char *data;
 
-		Buffer(void)
-		{
-		}
 		~Buffer(void)
 		{
 			if (data != nullptr) {
