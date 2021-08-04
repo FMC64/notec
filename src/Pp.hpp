@@ -790,8 +790,8 @@ private:
 	static inline Val op_huh(Val a, Val b, Val payload)
 	{
 		if (!payload.v || !b.v) {
-			payload.v = false;
-			b.v = false;
+			payload.is_s = false;
+			b.is_s = false;
 		}
 		if (a.v)
 			return payload;
@@ -955,8 +955,13 @@ private:
 				OpDesc o2;
 				if (!find_od(n, o2))
 					break;
-				if (o2.prec >= o.prec)
-					break;
+				if (o2.op == Token::Op::Huh) {	// right-associative
+					if (o2.prec != o.prec)
+						break;
+				} else {
+					if (o2.prec >= o.prec)
+						break;
+				}
 				b = gval(n, has_some, b, o.prec);
 			}
 			v = o.comp(v, b, payload);

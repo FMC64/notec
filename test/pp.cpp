@@ -575,10 +575,10 @@ test_case(pp_35)
 	s.set_file_count(1);
 	s.add_file("f",
 R"raw(
-	#if 0 ? 4 * 5 - 20 : 7 - (4 + 3) ? 8 + 16 : -43
-		err
-	#else
+	#if (0 ? 4 * 5 - 20 : 7 - (4 + 3) ? 8 + 16 : -43) == -43
 		g
+	#else
+		err
 	#endif
 	e
 )raw"
