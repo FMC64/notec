@@ -461,7 +461,7 @@ test_case(pp_30)
 	s.set_file_count(1);
 	s.add_file("f",
 R"raw(
-	#if 1 + 2 * 3 + 6 * 2 == 19 && 19 == 1 + 2 * 3 + 6 * 2 + sample_undef
+	#if 1 + 2 * 3 + 6 * 2 == 19 && 19 == 1 + 2 * 3 + (- -6) * 2 + sample_undef
 		g
 	#else
 		err
@@ -575,7 +575,7 @@ test_case(pp_35)
 	s.set_file_count(1);
 	s.add_file("f",
 R"raw(
-	#if (0 ? 4 * 5 - 20 : 7 - (4 + 3) ? 8 + 16 : 43) == 43
+	#if 0 ? 4 * 5 - 20 : 7 - (4 + 3) ? 8 + 16 : -43
 		err
 	#else
 		g

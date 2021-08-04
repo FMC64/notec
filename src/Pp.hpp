@@ -831,6 +831,7 @@ private:
 		{Token::Op::Huh, 13, op_huh}
 	};
 
+	// assumes n should be skipped, exits on end or unprocessable op
 	inline Val gval_b(const char *&n, bool &has_some)
 	{
 		auto v = gval_s(n, has_some);
@@ -847,8 +848,11 @@ private:
 	static inline constexpr auto ttrue = make_cstr("true");
 	//static inline constexpr auto tfalse = make_cstr("false");
 
+	// assumes n should be skipped, exits on parsed token that should be skipped
 	inline Val gval_s(const char *&n, bool &has_some)
 	{
+		if (!has_some)
+			m_stream.error("Expected token");
 		if (!next_token_dir_exp(n))
 			m_stream.error("Expected token");
 		auto t = Token::type(n);
@@ -862,17 +866,17 @@ private:
 					m_stream.error("Expected )");
 				return r;
 			} else if (o == Token::Op::Plus) {
-				return gval_b(n, has_some);
+				return gval_s(n, has_some);
 			} else if (o == Token::Op::Minus) {
-				auto r = gval_b(n, has_some);
+				auto r = gval_s(n, has_some);
 				r.v = -r.v;
 				return r;
 			} else if (o == Token::Op::Not) {
-				auto r = gval_b(n, has_some);
+				auto r = gval_s(n, has_some);
 				r.v = !r.v;
 				return r;
 			} else if (o == Token::Op::Tilde) {
-				auto r = gval_b(n, has_some);
+				auto r = gval_s(n, has_some);
 				r.v = ~r.v;
 				return r;
 			}
@@ -927,6 +931,7 @@ private:
 		return false;
 	}
 
+	// assumes n on end or op to parse, exits on end or unprocessable op
 	inline Val gval(const char *&n, bool &has_some, Val v, uint8_t prec = 255)
 	{
 		OpDesc o;
@@ -942,6 +947,8 @@ private:
 					m_stream.error("Expected :");
 			}
 			auto b = gval_s(n, has_some);
+			if (!has_some)
+				m_stream.error("Expected token");
 			if (!next_token_dir_exp(n))
 				has_some = false;
 			while (has_some) {
