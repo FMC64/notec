@@ -29,7 +29,7 @@ public:
 
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
-	inline bool open(const char *filepath, char *&stack, const char *stack_top)
+	inline bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
 	{
 		return true;
 	}

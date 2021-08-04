@@ -968,7 +968,9 @@ public:
 
 	inline void push(const char *filepath)
 	{
+		const char *csign = nullptr;
 		if (m_stack > m_stack_base) {	// if stack isn't empty
+			csign = get_file_sign();
 			m_stream.close();
 			if (m_stack + 5 > m_stack_base + stack_size) {
 				m_error = "File stack overflow";
@@ -978,8 +980,15 @@ public:
 			m_stack += store_part<2>(m_stack, m_row);
 		}
 		auto base = m_stack;
-		if (!m_stream.open(filepath, m_stack, m_stack_base + stack_size)) {
-			m_error = base;
+		if (m_stack + 1 > m_stack_base + stack_size) {
+			m_error = "File stack overflow";
+			throw;
+		}
+		if (!m_stream.open(filepath, csign, m_stack, m_stack_base + stack_size)) {
+			if (base[0] == 0x7F)
+				m_error = "File stack overflow";
+			else
+				m_error = base;
 			throw;
 		}
 		{
@@ -1042,7 +1051,7 @@ public:
 		m_stack -= 3;
 		m_off = load_part<3, size_t>(m_stack);
 		auto filepath = get_file_sign();
-		if (!m_stream.open(filepath, m_stack, nullptr)) {
+		if (!m_stream.open(filepath, nullptr, m_stack, nullptr)) {
 			m_error = filepath;
 			throw;
 		}

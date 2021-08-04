@@ -66,8 +66,9 @@ public:
 
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
-	bool open(const char *filepath, char *&stack, const char *stack_top)
+	bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
 	{
+		static_cast<void>(ctx);	// current source location ignored for string fs (no directories)
 		const char *str = Token::data(filepath);
 		uint8_t size = Token::size(filepath);
 		for (size_t i = 0; i < m_entry_count; i++) {
@@ -86,6 +87,10 @@ public:
 			m_buf.data = new char[e.size];
 			std::memcpy(m_buf.data, e.data, e.size);
 			if (stack_top != nullptr) {
+				if (stack + Token::whole_size(filepath) > stack_top) {
+					stack[0] = 0x7F;
+					return false;
+				}
 				*stack++ = static_cast<char>(Token::Type::StringLiteral);
 				*stack++ = size;
 				for (uint8_t i = 0; i < size; i++)
