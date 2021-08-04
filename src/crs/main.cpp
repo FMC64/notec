@@ -28,7 +28,8 @@ int main(void)
 		}
 		return 1;
 	}
-	while (auto t = p.next());
+	p.open(make_tstr(Token::Type::StringLiteral, "main.cpp"));
+	while (p.next());
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>("NOTE-C - no error"));
 	while (1) {

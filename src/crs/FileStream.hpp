@@ -1,6 +1,7 @@
 #pragma once
 
 #include "cint.hpp"
+#include "Token.hpp"
 #include <fxlib.h>
 
 static inline void tactical_exit(const char *msg)
@@ -27,10 +28,48 @@ public:
 		return s;
 	}
 
+	static inline constexpr auto crd = make_tstr(Token::Type::StringLiteral, "\\\\crd0\\");
+
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
 	inline bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
 	{
+		static_cast<void>(ctx);	// context ignored for now
+
+		if (stack_top == nullptr) {
+			auto s = Token::size(filepath);
+			auto d = Token::data(filepath);
+			FONTCHARACTER path[s + 1];
+			for (uint8_t i = 0; i < s; i++)
+				path[i] = d[i];
+			path[s] = 0;
+			m_handle = Bfile_OpenFile(path, _OPENMODE_READ);
+			if (m_handle < 0)
+				tactical_exit("Bfile_OpenFile failed");
+			return true;
+		}
+		auto s = Token::size(filepath);
+		auto d = Token::data(filepath);
+		auto crd_s = Token::size(crd);
+		auto crd_d = Token::data(crd);
+		FONTCHARACTER path[crd_s + s + 1];
+		uint8_t i = 0;
+		for (uint8_t j = 0; j < crd_s; j++)
+			path[i++] = crd_d[j];
+		for (uint8_t j = 0; j < s; j++)
+			path[i++] = d[j];
+		path[i] = 0;
+		if (stack + 2 + i > stack_top) {
+			*stack = 0x7F;
+			return false;
+		}
+		*stack++ = static_cast<char>(Token::Type::StringLiteral);
+		*stack++ = i;
+		for (uint8_t j = 0; j < i; j++)
+			*stack++ = path[j];
+		m_handle = Bfile_OpenFile(path, _OPENMODE_READ);
+		if (m_handle < 0)
+			return false;
 		return true;
 	}
 

@@ -88,7 +88,7 @@ public:
 			std::memcpy(m_buf.data, e.data, e.size);
 			if (stack_top != nullptr) {
 				if (stack + Token::whole_size(filepath) > stack_top) {
-					stack[0] = 0x7F;
+					*stack = 0x7F;
 					return false;
 				}
 				*stack++ = static_cast<char>(Token::Type::StringLiteral);
