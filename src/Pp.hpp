@@ -120,6 +120,11 @@ private:
 		return _next_token_dir<&Pp::next_base>(res);
 	}
 
+	inline bool next_token_dir_exp_nntexp(const char* &res)
+	{
+		return _next_token_dir<&Pp::next_base_nntexp>(res);
+	}
+
 	inline const char* include(void)
 	{
 		const char *n;
@@ -626,6 +631,27 @@ private:
 		&Pp::i__TIME__		// 6
 	};
 
+	inline const char* next_stack(void)
+	{
+		const char *n;
+		if (m_stack > m_stack_base) {
+			n = nullptr;
+			do {
+				auto s = load<uint16_t>(m_stack - 2);
+				if (stack_poll(m_stack - s, n)) {
+					if (n == nullptr)
+						m_stack -= s;
+					else
+						break;
+				}
+			} while (m_stack > m_stack_base);
+			if (n == nullptr && !m_reached_end)
+				n = next_token();
+		} else
+			n = next_token();
+		return n;
+	}
+	const char* next_base_nntexp(void);
 	const char* next_base(void);
 
 	inline void push_stream_token(const char *n)
@@ -886,19 +912,19 @@ private:
 			return Val{static_cast<uint32_t>(static_cast<int32_t>(n[1])), true};
 		else if (t == Token::Type::Identifier) {
 			if (streq(n + 1, tdefined)) {
-				if (!next_token_dir(n))
+				if (!next_token_dir_exp_nntexp(n))
 					m_stream.error("Expected token");
 				bool has_par = false;
 				if (Token::is_op(n, Token::Op::LPar)) {
 					has_par = true;
-					if (!next_token_dir(n))
+					if (!next_token_dir_exp_nntexp(n))
 						m_stream.error("Expected token");
 				}
 				assert_token_type(n, Token::Type::Identifier);
 				token_nter(nn, n);
 				auto r = Val{m_macros.resolve(nn), true};
 				if (has_par) {
-					if (!next_token_dir_exp(n))
+					if (!next_token_dir_exp_nntexp(n))
 						m_stream.error("Expected )");
 					if (!Token::is_op(n, Token::Op::RPar))
 						m_stream.error("Expected )");

@@ -335,25 +335,25 @@ void Pp::tok_str(const char *&n, char *&c, const char *c_top, const char *args)
 	}
 }
 
+const char* Pp::next_base_nntexp(void)
+{
+	while (true) {
+		auto n = next_stack();
+		while (true) {
+			if (n == nullptr)
+				return nullptr;
+			if (Token::is_op(n, Token::Op::Sharp))
+				n = directive();
+			else	// no substitution
+				return n;
+		}
+	}
+}
+
 const char* Pp::next_base(void)
 {
 	while (true) {
-		const char *n;
-		if (m_stack > m_stack_base) {
-			n = nullptr;
-			do {
-				auto s = load<uint16_t>(m_stack - 2);
-				if (stack_poll(m_stack - s, n)) {
-					if (n == nullptr)
-						m_stack -= s;
-					else
-						break;
-				}
-			} while (m_stack > m_stack_base);
-			if (n == nullptr && !m_reached_end)
-				n = next_token();
-		} else
-			n = next_token();
+		auto n = next_stack();
 		while (true) {
 			if (n == nullptr)
 				return nullptr;
