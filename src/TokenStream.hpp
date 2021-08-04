@@ -22,6 +22,11 @@ namespace Char {
 		return c <= 32;
 	}
 
+	static inline constexpr bool is_odigit(char c)
+	{
+		return c >= '0' && c <= '7';
+	}
+
 	static inline constexpr bool is_digit(char c)
 	{
 		return c >= '0' && c <= '9';
@@ -723,27 +728,67 @@ class Stream
 
 	bool adv_operator(void);
 
-	inline bool require_neob(char * const filler)
+	inline void require_neob(char * const filler)
 	{
 		if (*m_i == Char::eob) {
 			if (filler >= m_buf) {
 				m_error = "Max string size is 96";
 				throw;
 			}
-			feed_buf();
+			if (m_i == m_buf + buf_size)
+				feed_buf();
 			m_i = m_buf;
+			if (*m_i == Char::eob) {
+				m_error = "Expected char";
+				throw;
+			}
 		}
-		return true;
 	}
 
 	inline char escape(char * const filler)
 	{
-		if (!require_neob(filler))
-			return 0;
-		auto g = Char::escape_table[*m_i];
+		require_neob(filler);
+		auto c = *m_i;
+		auto g = Char::escape_table[c];
 		if (g != 0) {
 			m_i++;
 			return g;
+		}
+		if (Token::Char::lower(c) == 'x') {
+			m_i++;
+			size_t n = 0;
+			size_t v = 0;
+			while (true) {
+				require_neob(filler);
+				c = Token::Char::lower(*m_i);
+				if (!(Token::Char::is_digit(c) || (c >= 'a' && c <= 'f')))
+					break;
+				m_i++;
+				n++;
+				size_t d;
+				if (c >= 'a' && c <= 'f')
+					d = c - 'a' + 10;
+				else
+					d = c - '0';
+				v = v * 16 + d;
+			}
+			if (n == 0) {
+				m_error = "Expected at least one hex digit",
+				throw;
+			}
+			return v;
+		} else if (Token::Char::is_odigit(c)) {
+			size_t v = 0;
+			while (true) {
+				require_neob(filler);
+				c = *m_i;
+				if (!Token::Char::is_odigit(c))
+					break;
+				m_i++;
+				size_t d = c - '0';
+				v = v * 8 + d;
+			}
+			return v;
 		}
 		m_error = "Unknown escape sequence";
 		throw;
@@ -758,8 +803,7 @@ class Stream
 					m_error = "Max string size is 96";
 					throw;
 				} else {
-					if (!require_neob(filler))
-						return;
+					require_neob(filler);
 					return fill_str<Deep + 1>(delim, filler);
 				}
 			}

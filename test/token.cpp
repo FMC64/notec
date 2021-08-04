@@ -222,10 +222,18 @@ test_case(token_13)
 
 test_case(token_14)
 {
-	auto toks = init_file(read_file("./src/Token.hpp"));
-	while (toks.next());
-	test_assert(toks.get_error() == nullptr);
-	toks.get_stream().close();
+	{
+		auto toks = init_file(read_file("./src/TokenStream.hpp"));
+		while (toks.next());
+		test_assert(toks.get_error() == nullptr);
+		toks.get_stream().close();
+	}
+	{
+		auto toks = init_file(read_file("./src/Pp.hpp"));
+		while (toks.next());
+		test_assert(toks.get_error() == nullptr);
+		toks.get_stream().close();
+	}
 }
 
 test_case(token_15)
@@ -296,6 +304,14 @@ test_case(token_21)
 {
 	auto toks = init_file("->*");
 	next_assert_op(toks, Type::Operator, Op::ArrowMember);
+	test_assert(toks.next() == nullptr);
+	toks.get_stream().close();
+}
+
+test_case(token_22)
+{
+	auto toks = init_file("\"abc\\xFF\\77\"  ");
+	next_assert(toks, Type::StringLiteral, "abc\xFF\77");
 	test_assert(toks.next() == nullptr);
 	toks.get_stream().close();
 }
