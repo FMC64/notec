@@ -12,6 +12,11 @@ namespace std {
 namespace fs = filesystem;
 }
 
+std::string get_filename(const std::fs::path &p)
+{
+	return std::fs::canonical(p).filename().string();
+}
+
 static void co_dir(const std::string &path, const std::fs::directory_entry &dir, const std::fs::directory_entry &dst, std::map<std::string, std::string> &existing)
 {
 	for (auto &e : std::fs::directory_iterator(dir)) {
@@ -21,7 +26,7 @@ static void co_dir(const std::string &path, const std::fs::directory_entry &dir,
 		std::stringstream fpss;
 		if (path.size() > 0)
 			fpss << path << "/";
-		fpss << e.path().filename().string();
+		fpss << get_filename(e.path());
 		auto fp = fpss.str();
 		if (e.is_regular_file()) {
 			if (fp.size() > 255) {
@@ -90,7 +95,10 @@ static void co(const std::set<char> &opt, const char *src, const char *dst)
 			throw std::runtime_error("Can't create dst before writing");
 	}
 	std::map<std::string, std::string> existing;
-	co_dir(opt.find('r') != opt.end() ? as.filename().string() : std::string(""), std::fs::directory_entry(as), std::fs::directory_entry(dst), existing);
+	auto deas = std::fs::directory_entry(as);
+	auto dead = std::fs::directory_entry(ad);
+	co_dir(opt.find('r') != opt.end() ? get_filename(deas.path()) : std::string(""), deas, dead, existing);
+	std::cout << "=> Encoded " << existing.size() << " files to '" << dead.path().string() << "'" << std::endl;
 }
 
 static void dec(const std::set<char> &opt, const char *src, const char *dst)
