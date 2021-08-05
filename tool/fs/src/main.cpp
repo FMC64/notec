@@ -45,10 +45,12 @@ static void co_dir(const std::string &path, const std::fs::directory_entry &dir,
 				hn[i] = h[i];
 			auto de = dst.path().string() + "/" + hn;
 			{
-				auto col = existing.find(de);
+				auto col = existing.find(hn);
 				if (col != existing.end()) {
 					std::stringstream ss;
-					ss << "Unfortunate collision! '" << fp << "' and '" << col->second << "' have same signatures. Slightly changing filenames/path might solve the issue.";
+					ss << "Unfortunate collision!" << std::endl;
+					ss << "'" << fp << "' and '" << col->second << "' have same signatures." << std::endl;
+					ss << "Slightly changing the filename or path of one of these two might solve the issue.";
 					throw std::runtime_error(ss.str());
 				}
 				auto [i, s] = existing.emplace(std::piecewise_construct, std::forward_as_tuple(hn), std::forward_as_tuple(fp));
