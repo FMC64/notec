@@ -17,7 +17,8 @@ std::string get_filename(const std::fs::path &p)
 	return std::fs::canonical(p).filename().string();
 }
 
-static void co_dir(const std::string &path, const std::fs::directory_entry &dir, const std::fs::directory_entry &dst, std::map<std::string, std::string> &existing)
+static void co_dir(const std::string &path, const std::fs::directory_entry &dir, const std::fs::directory_entry &dst,
+	std::map<std::string, std::string> &existing, bool ign_col, size_t &col_count)
 {
 	for (auto &e : std::fs::directory_iterator(dir)) {
 		auto p = e.path();
@@ -47,26 +48,33 @@ static void co_dir(const std::string &path, const std::fs::directory_entry &dir,
 			{
 				auto col = existing.find(hn);
 				if (col != existing.end()) {
-					std::stringstream ss;
-					ss << "Unfortunate collision!" << std::endl;
-					ss << "'" << fp << "' and '" << col->second << "' have same signatures." << std::endl;
-					ss << "Slightly changing the filename or path of one of these two might solve the issue.";
-					throw std::runtime_error(ss.str());
+					if (ign_col) {
+						std::cout << "Collision between '" << fp << "' and '" << col->second << "'" << std::endl;
+						col_count++;
+					} else {
+						std::stringstream ss;
+						ss << "Unfortunate collision!" << std::endl;
+						ss << "'" << fp << "' and '" << col->second << "' have same signatures." << std::endl;
+						ss << "Slightly changing the filename or path of one of these two might solve the issue.";
+						throw std::runtime_error(ss.str());
+					}
+				} else {
+					auto [i, s] = existing.emplace(std::piecewise_construct, std::forward_as_tuple(hn), std::forward_as_tuple(fp));
+					if (!s) {
+						std::stringstream ss;
+						ss << "Can't insert entry { " << hn << " => " << fp << " } in collision map";
+						throw std::runtime_error(ss.str());
+					}
+					if (!std::fs::copy_file(e, de)) {
+						std::stringstream ss;
+						ss << "Can't copy '" << p.string() << "'";
+						throw std::runtime_error(ss.str());
+					}
 				}
-				auto [i, s] = existing.emplace(std::piecewise_construct, std::forward_as_tuple(hn), std::forward_as_tuple(fp));
-				if (!s) {
-					std::stringstream ss;
-					ss << "Can't insert entry { " << hn << " => " << fp << " } in collision map";
-					throw std::runtime_error(ss.str());
-				}
-			}
-			if (!std::fs::copy_file(e, de)) {
-				std::stringstream ss;
-				ss << "Can't copy '" << p.string() << "'";
-				throw std::runtime_error(ss.str());
 			}
 		} else if (e.is_directory())
-			co_dir(fp, e, dst, existing);
+			co_dir(fp, e, dst,
+				existing, ign_col, col_count);
 	}
 }
 
@@ -99,8 +107,17 @@ static void co(const std::set<char> &opt, const char *src, const char *dst)
 	std::map<std::string, std::string> existing;
 	auto deas = std::fs::directory_entry(as);
 	auto dead = std::fs::directory_entry(ad);
-	co_dir(opt.find('r') != opt.end() ? get_filename(deas.path()) : std::string(""), deas, dead, existing);
-	std::cout << "=> Encoded " << existing.size() << " files to '" << dead.path().string() << "'" << std::endl;
+	size_t col_count = 0;
+	co_dir(opt.find('r') != opt.end() ? get_filename(deas.path()) : std::string(""), deas, dead,
+		existing, opt.find('c') != opt.end(), col_count);
+	std::cout << "=> Encoded " << existing.size() << " file" << (existing.size() > 1 ? "s" : "") << " to '" << dead.path().string() << "'" << std::endl;
+	if (col_count > 0) {
+		if (col_count > 1)
+			std::cout << "[WARNING]: " << col_count << " files have been ignored because they share their signature with another file." << std::endl;
+		else
+			std::cout << "[WARNING]: " << col_count << " file has been ignored because it shares its signature with another file." << std::endl;
+		std::cout << "[PRO TIP]: Slightly alter filenames so they do not collide anymore." << std::endl;
+	}
 }
 
 static void dec(const std::set<char> &opt, const char *src, const char *dst)
@@ -180,6 +197,7 @@ int main(int argc, const char * const *argv)
 			std::cout << "\t    Note: By default will print error & exit." << std::endl;
 			std::cout << "\t    Note: -f and -m are mutually exclusive." << std::endl;
 			std::cout << "\t-w: ignore self encoding error" << std::endl;
+			std::cout << "\t-c: ignore collisions" << std::endl;
 			std::cout << "\tsrc: the path to the directory whose contents will be encoded" << std::endl;
 			std::cout << "\tdst: the path to the output directory" << std::endl;
 			std::cout << "\t     Note: behaves similarly to cp: creates folder if dst does not exist," << std::endl;
@@ -211,7 +229,7 @@ int main(int argc, const char * const *argv)
 			std::cout << "structure." << std::endl;
 		} else if (streq(av[i], "co")) {
 			i++;
-			auto ops = get_options(i, ac, av, {'r', 'f', 'm', 'w'});
+			auto ops = get_options(i, ac, av, {'r', 'f', 'm', 'w', 'c'});
 			if (ac - i != 2)
 				throw std::runtime_error("Expected two last args which are not options");
 			co(ops, av[i], av[i + 1]);
