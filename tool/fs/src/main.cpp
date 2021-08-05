@@ -4,16 +4,93 @@
 #include <stdexcept>
 #include <sstream>
 #include <filesystem>
+#include <string>
+#include <map>
+#include "crs/File.hpp"
 
 namespace std {
 namespace fs = filesystem;
 }
 
+static void co_dir(const std::string &path, const std::fs::directory_entry &dir, const std::fs::directory_entry &dst, std::map<std::string, std::string> &existing)
+{
+	for (auto &e : std::fs::directory_iterator(dir)) {
+		auto p = e.path();
+		if (!p.has_filename())
+			continue;
+		std::stringstream fpss;
+		if (path.size() > 0)
+			fpss << path << "/";
+		fpss << e.path().filename().string();
+		auto fp = fpss.str();
+		if (e.is_regular_file()) {
+			if (fp.size() > 255) {
+				std::stringstream ss;
+				ss << "'" << fp << "' exceeds max path length (255)";
+				throw std::runtime_error(ss.str());
+			}
+			char path[fp.size() + 1];
+			path[0] = fp.size();
+			for (size_t i = 0; i < fp.size(); i++)
+				path[1 + i] = fp[i];
+			File::hashed h;
+			File::hash_path(path, h);
+			char hn[File::hashed_len + 1] = {};
+			for (size_t i = 0; i < File::hashed_len; i++)
+				hn[i] = h[i];
+			auto de = dst.path().string() + "/" + hn;
+			{
+				auto col = existing.find(de);
+				if (col != existing.end()) {
+					std::stringstream ss;
+					ss << "Unfortunate collision! '" << fp << "' and '" << col->second << "' have same signatures. Slightly changing filenames/path might solve the issue.";
+					throw std::runtime_error(ss.str());
+				}
+				auto [i, s] = existing.emplace(std::piecewise_construct, std::forward_as_tuple(hn), std::forward_as_tuple(fp));
+				if (!s) {
+					std::stringstream ss;
+					ss << "Can't insert entry { " << hn << " => " << fp << " } in collision map";
+					throw std::runtime_error(ss.str());
+				}
+			}
+			if (!std::fs::copy_file(e, de)) {
+				std::stringstream ss;
+				ss << "Can't copy '" << p.string() << "'";
+				throw std::runtime_error(ss.str());
+			}
+		} else if (e.is_directory())
+			co_dir(fp, e, dst, existing);
+	}
+}
+
 static void co(const std::set<char> &opt, const char *src, const char *dst)
 {
-	static_cast<void>(opt);
-	static_cast<void>(src);
-	static_cast<void>(dst);
+	if (opt.find('f') != opt.end() && opt.find('m') != opt.end())
+		throw std::runtime_error("-f and -m are mutually exclusive");
+
+	auto as = std::fs::absolute(src);
+	auto ad = std::fs::absolute(dst);
+	if (ad.string().starts_with(as.string()))
+		if (opt.find('w') == opt.end())
+			throw std::runtime_error("Self encoding: dst is contained within src. High-risk of undefinitely self copying.");
+
+	if (std::fs::exists(dst)) {
+		if (opt.find('f') == opt.end()) {
+			std::stringstream ss;
+			ss << "Destination '" << dst << "' already exists. Use -f to wipe and rewrite or -m to merge.";
+			throw std::runtime_error(ss.str());
+		} else {
+			if (!std::fs::remove_all(dst))
+				throw std::runtime_error("Can't wipe dst before writing");
+			if (!std::fs::create_directory(dst))
+				throw std::runtime_error("Can't create dst before writing");
+		}
+	} else {
+		if (!std::fs::create_directory(dst))
+			throw std::runtime_error("Can't create dst before writing");
+	}
+	std::map<std::string, std::string> existing;
+	co_dir(opt.find('r') != opt.end() ? as.filename().string() : std::string(""), std::fs::directory_entry(as), std::fs::directory_entry(dst), existing);
 }
 
 static void dec(const std::set<char> &opt, const char *src, const char *dst)
@@ -146,6 +223,7 @@ int main(int argc, const char * const *argv)
 			throw std::runtime_error(ss.str());
 		}
 	} catch (const std::exception &e) {
+		std::cerr << "[FATAL ERROR]" << std::endl;
 		std::cerr << e.what() << std::endl;
 		std::cerr << "-h or --help for usage." << std::endl;
 		return 1;
