@@ -2,6 +2,7 @@
 
 #include "cint.hpp"
 #include "Token.hpp"
+#include "File.hpp"
 #include <fxlib.h>
 
 static inline void tactical_exit(const char *msg)
@@ -48,8 +49,10 @@ public:
 				tactical_exit("Bfile_OpenFile failed");
 			return true;
 		}
-		auto s = Token::size(filepath);
-		auto d = Token::data(filepath);
+		File::hashed h;
+		File::hash_path(filepath + 1, h);
+		uint8_t s = File::hashed_len;
+		const char *d = h;
 		auto crd_s = Token::size(crd);
 		auto crd_d = Token::data(crd);
 		FONTCHARACTER path[crd_s + s + 1];
@@ -63,13 +66,22 @@ public:
 			*stack = 0x7F;
 			return false;
 		}
+		auto base = stack;
 		*stack++ = static_cast<char>(Token::Type::StringLiteral);
 		*stack++ = i;
 		for (uint8_t j = 0; j < i; j++)
 			*stack++ = path[j];
 		m_handle = Bfile_OpenFile(path, _OPENMODE_READ);
-		if (m_handle < 0)
+		if (m_handle < 0) {
+			s = Token::whole_size(filepath);
+			if (base + s > stack_top) {
+				*base = 0x7F;
+				return false;
+			}
+			for (uint8_t i = 0; i < s; i++)
+				base[i] = filepath[i];
 			return false;
+		}
 		return true;
 	}
 
