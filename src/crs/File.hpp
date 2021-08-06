@@ -20,7 +20,9 @@ static inline void hash_path(const char *path, hashed dst)
 		auto c = *path++;
 		base[n++] += c ^ ent;
 		ent ^= c;
-		ent <<= 1;
+		auto car = (ent & 0x01) << 7;
+		ent >>= 1;
+		ent ^= car;
 		if (n == sizeof(base))
 			n = 0;
 	}
