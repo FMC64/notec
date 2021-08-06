@@ -18,18 +18,22 @@ static inline void hash_path(const char *path, hashed dst)
 	uint8_t ent = 0;
 	for (uint8_t i = 0; i < size; i++) {
 		auto c = *path++;
-		base[n++] += c ^ ent;
+		auto tx = c ^ ent;
+		if (tx == 0)
+			tx = c;
+		base[n++] ^= tx;
 		ent ^= c;
 		auto car = (ent & 0x01) << 7;
 		ent >>= 1;
 		ent ^= car;
+		ent ^= base[n - 1];
 		if (n == sizeof(base))
 			n = 0;
 	}
 	{
 		auto s = (base[5] & 0xF0) >> 4;
-		for (size_t i = 0; i < 4; i++)
-			base[i] += (s & (1 << i)) >> i;
+		for (size_t i = 0; i < 5; i++)
+			base[i] ^= s;
 	}
 	for (size_t i = 0; i < 4; i++) {
 		auto c = base[i];
