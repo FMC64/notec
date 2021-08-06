@@ -5,9 +5,11 @@
 
 #include "arith.hpp"
 #include "Token.hpp"
+#include "StrMap.hpp"
 
 class StrStream
 {
+	StrMap::BlockGroup m_ponce;
 	size_t m_ndx;
 
 public:
@@ -54,6 +56,12 @@ public:
 		m_entries = nullptr;
 	}
 
+	void insert_ponce(const char *sign)
+	{
+		token_nter(sn, sign);
+		m_ponce.insert(sn);
+	}
+
 	size_t read(char *buf, size_t size)
 	{
 		if (m_ndx >= m_buf.size)
@@ -66,7 +74,7 @@ public:
 
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
-	bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
+	bool open(const char *filepath, const char *ctx, bool is_sany, char *&stack, const char *stack_top)
 	{
 		static_cast<void>(ctx);	// current source location ignored for string fs (no directories)
 		const char *str = Token::data(filepath);
@@ -82,6 +90,17 @@ public:
 				}
 			if (!match || *n != 0)
 				continue;
+
+			if (stack_top != nullptr) {	// don't check pragma once on resume
+				token_nter(fn, filepath);
+				if (m_ponce.resolve(fn)) {
+					*stack = 0x7E;
+					return true;
+				}
+			}
+			if (is_sany)
+				close();
+
 			m_ndx = 0;
 			m_buf.size = e.size;
 			m_buf.data = new char[e.size];

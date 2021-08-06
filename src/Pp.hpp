@@ -9,7 +9,6 @@ class Pp
 {
 	Token::Stream m_stream;
 	StrMap::BlockGroup m_dirs;
-	StrMap::BlockGroup m_ponce;
 
 	static inline constexpr size_t pmacro_count = 7;
 	static inline constexpr const char *pmacros_names[pmacro_count] = {
@@ -151,9 +150,6 @@ private:
 			m_stream.push(stack_base);
 		} else
 			m_stream.error("Expected string");
-		token_nter(sn, m_stream.get_file_sign());
-		if (m_ponce.resolve(sn))
-			m_stream.pop();
 		return next_token();
 	}
 
@@ -327,8 +323,7 @@ private:
 			if (Token::type(n) == Token::Type::Identifier) {
 				if (streq(n + 1, once)) {
 					auto sign = m_stream.get_file_sign();
-					token_nter(sn, sign);
-					m_ponce.insert(sn);
+					m_stream.get_stream().insert_ponce(sign);
 				}
 				if (next_token_dir(n))
 					m_stream.error("Expected no further token");
