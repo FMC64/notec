@@ -6,12 +6,37 @@
 #include "StrMap.hpp"
 #include <fxlib.h>
 
-static inline void tactical_exit(const char *msg)
+static inline void tactical_exit(const char *msg, int code)
 {
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>("FATAL ERROR"));
 	locate(1, 2);
 	Print(reinterpret_cast<const uint8_t*>(msg));
+	locate(1, 3);
+	char cbuf[64];
+	{
+		auto c = cbuf;
+		if (code < 0) {
+			*c++ = '-';
+			code *= -1;
+		}
+		auto base = c;
+		uint8_t s = 0;
+		while (code > 0) {
+			s++;
+			*c++ = static_cast<char>(code % 10) + '0';
+			code /= 10;
+		}
+		auto h = s / 2;
+		for (uint8_t i = 0; i < h; i++) {
+			auto ir = s - 1 - i;
+			auto tmp = base[i];
+			base[i] = base[ir];
+			base[ir] = tmp;
+		}
+		*c = 0;
+	}
+	Print(reinterpret_cast<const uint8_t*>(cbuf));
 	while (1) {
 		unsigned int key;
 		GetKey(&key);
@@ -29,7 +54,7 @@ public:
 	{
 		auto s = Bfile_ReadFile(m_handle, buf, size, -1);
 		if (s < 0)
-			tactical_exit("Bfile_ReadFile failed");
+			tactical_exit("Bfile_ReadFile failed", s);
 		return s;
 	}
 
@@ -103,7 +128,8 @@ public:
 				for (uint8_t i = 0; i < s; i++)
 					*stack++ = d[i];
 			}
-		}
+		} else if (hdl != IML_FILEERR_ENTRYNOTFOUND)
+			tactical_exit("Bfile_OpenFile failed", hdl);
 		return res;
 	}
 
@@ -113,7 +139,7 @@ public:
 	{
 		if (stack_top == nullptr) {
 			if (!open_file(crd, nullptr, filepath, is_sany, stack, nullptr))
-				tactical_exit("Bfile_OpenFile failed");
+				tactical_exit("Bfile_OpenFile failed", 0);
 			return true;
 		}
 
@@ -155,13 +181,13 @@ public:
 	{
 		auto r = Bfile_SeekFile(m_handle, ndx);
 		if (r < 0)
-			tactical_exit("Bfile_SeekFile failed");
+			tactical_exit("Bfile_SeekFile failed", r);
 	}
 
 	inline void close(void)
 	{
 		auto r = Bfile_CloseFile(m_handle);
 		if (r < 0)
-			tactical_exit("Bfile_CloseFile failed");
+			tactical_exit("Bfile_CloseFile failed", r);
 	}
 };

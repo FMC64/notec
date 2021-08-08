@@ -6,7 +6,7 @@ extern "C" {
 
 void strncmp(void)
 {
-	tactical_exit("dummy strncmp actually called");
+	tactical_exit("dummy strncmp actually called", -1);
 }
 
 }
