@@ -66,7 +66,8 @@ public:
 
 	static inline constexpr auto crd = make_tstr(Token::Type::StringLiteral, "\\\\crd0\\");
 
-	inline bool open_file(const char *base_folder, const char *search_dir, const char *filepath, bool is_sany, char *&stack, const char *stack_top)
+	inline bool open_file(const char *base_folder, const char *search_dir, const char *filepath, const char *ctx,
+		bool is_sany, char *&stack, const char *stack_top)
 	{
 		char buf[1 + (search_dir != nullptr ? static_cast<size_t>(Token::size(search_dir)) : 0) + static_cast<size_t>(Token::size(filepath))];
 		if (search_dir != nullptr) {
@@ -89,6 +90,12 @@ public:
 		} else
 			filepath++;
 
+		int hdl;
+		if (ctx != nullptr)
+			if (streq(filepath, ctx + 1)) {
+				seek(0);
+				goto push_file;
+			}
 		if (stack_top != nullptr) {	// don't check pragma once on resume
 			token_nter(fn, filepath - 1);
 			if (m_ponce.resolve(fn)) {
@@ -97,40 +104,44 @@ public:
 			}
 		}
 
-		File::hashed h;
-		File::hash_path(filepath, h);
-		uint8_t s = File::hashed_len;
-		const char *d = h;
-		auto crd_s = Token::size(base_folder);
-		auto crd_d = Token::data(base_folder);
-		FONTCHARACTER path[crd_s + s + 3];
-		uint8_t i = 0;
-		for (uint8_t j = 0; j < crd_s; j++)
-			path[i++] = crd_d[j];
-		for (uint8_t j = 0; j < s; j++)
-			path[i++] = d[j];
-		path[i] = 0;
-		auto hdl = Bfile_OpenFile(path, _OPENMODE_READ);
-		auto res = hdl >= 0;
-		if (res) {
-			if (is_sany)
-				close();
-			m_handle = hdl;
-			if (stack_top != nullptr) {
-				auto s = static_cast<uint8_t>(filepath[0]);
-				auto d = filepath + 1;
-				if (stack + 2 + s > stack_top) {
-					*stack = 0x7F;
-					return false;
-				}
-				*stack++ = static_cast<char>(Token::Type::StringLiteral);
-				*stack++ = s;
-				for (uint8_t i = 0; i < s; i++)
-					*stack++ = d[i];
+		{
+			File::hashed h;
+			File::hash_path(filepath, h);
+			uint8_t s = File::hashed_len;
+			const char *d = h;
+			auto crd_s = Token::size(base_folder);
+			auto crd_d = Token::data(base_folder);
+			FONTCHARACTER path[crd_s + s + 3];
+			uint8_t i = 0;
+			for (uint8_t j = 0; j < crd_s; j++)
+				path[i++] = crd_d[j];
+			for (uint8_t j = 0; j < s; j++)
+				path[i++] = d[j];
+			path[i] = 0;
+			hdl = Bfile_OpenFile(path, _OPENMODE_READ);
+			if (hdl < 0) {
+				if (hdl != IML_FILEERR_ENTRYNOTFOUND)
+					tactical_exit("Bfile_OpenFile failed", hdl);
+				return false;
 			}
-		} else if (hdl != IML_FILEERR_ENTRYNOTFOUND)
-			tactical_exit("Bfile_OpenFile failed", hdl);
-		return res;
+		}
+		if (is_sany)
+			close();
+		m_handle = hdl;
+		push_file:;
+		if (stack_top != nullptr) {
+			auto s = static_cast<uint8_t>(filepath[0]);
+			auto d = filepath + 1;
+			if (stack + 2 + s > stack_top) {
+				*stack = 0x7F;
+				return false;
+			}
+			*stack++ = static_cast<char>(Token::Type::StringLiteral);
+			*stack++ = s;
+			for (uint8_t i = 0; i < s; i++)
+				*stack++ = d[i];
+		}
+		return true;
 	}
 
 	// stack contains ptr for opened file signature or opening error
@@ -138,12 +149,12 @@ public:
 	inline bool open(const char *filepath, const char *ctx, bool is_sany, char *&stack, const char *stack_top)
 	{
 		if (stack_top == nullptr) {
-			if (!open_file(crd, nullptr, filepath, is_sany, stack, nullptr))
+			if (!open_file(crd, nullptr, filepath, ctx, is_sany, stack, nullptr))
 				tactical_exit("Bfile_OpenFile failed", 0);
 			return true;
 		}
 
-		if (open_file(crd, nullptr, filepath, is_sany, stack, stack_top))
+		if (open_file(crd, nullptr, filepath, ctx, is_sany, stack, stack_top))
 			return true;
 		if (*stack == 0x7F)
 			return false;
@@ -161,7 +172,7 @@ public:
 				c[i] = ctx[i];
 			c[1] = s;
 
-			if (open_file(crd, c, filepath, is_sany, stack, stack_top))
+			if (open_file(crd, c, filepath, ctx, is_sany, stack, stack_top))
 				return true;
 			if (*stack == 0x7F)
 				return false;
