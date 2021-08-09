@@ -64,7 +64,7 @@ public:
 		m_ponce.insert(sn);
 	}
 
-	static inline constexpr auto crd = make_tstr(Token::Type::StringLiteral, "\\\\crd0\\");
+	static inline constexpr auto crd = make_tstr(Token::Type::StringLiteral, "\\\\fls0\\NOTEC\\");
 
 	inline bool open_file(const char *base_folder, const char *search_dir, const char *filepath, const char *ctx,
 		bool is_sany, char *&stack, const char *stack_top)

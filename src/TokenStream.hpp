@@ -59,6 +59,7 @@ namespace Char {
 
 	static inline constexpr char eob = 0x7F;
 	static inline constexpr char buf_overflow = 0x80;
+	static inline constexpr char buf_overflow_init = buf_overflow | 0x01;	// buf subfilled, but can still poll
 
 	template <size_t Size>
 	struct Table
@@ -855,6 +856,10 @@ class Stream
 
 	inline size_t feed_buf(void)
 	{
+		if (m_buf[buf_size] == Char::buf_overflow) {
+			*m_buf = Char::eob;
+			return 0;
+		}
 		auto r = m_stream.read(m_buf, buf_size);
 		m_buf[buf_size] = Char::buf_overflow;
 		m_buf[r] = Char::eob;
@@ -931,7 +936,7 @@ public:
 
 	inline size_t get_off(void) const	// current byte offset in file
 	{
-		if (m_buf[buf_size] == Char::buf_overflow) {	// buffer at end of file, expensive
+		if (m_buf[buf_size] & Char::buf_overflow) {	// buffer at end of file, expensive
 			auto end = m_i;
 			while (*end != Char::eob)
 				end++;
@@ -955,7 +960,7 @@ public:
 	{
 		m_i = m_buf;
 		*m_i = Char::eob;
-		m_buf[buf_size] = Char::buf_overflow;
+		m_buf[buf_size] = Char::buf_overflow_init;
 		m_line_escaped = false;
 	}
 
