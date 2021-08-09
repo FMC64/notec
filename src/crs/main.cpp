@@ -28,7 +28,8 @@ int main(void)
 		}
 		return 1;
 	}
-	p.include_dir(make_cstr("/fls0/NOTEC:"));
+	p.include_dir(make_cstr("/fls0/INCLUDE:"));	// first dir is system include
+	p.include_dir(make_cstr("/fls0/SRC:"));
 	p.open(make_tstr(Token::Type::StringLiteral, "Pp.cpp"));
 	while (p.next());
 	locate(1, 1);

@@ -148,21 +148,54 @@ public:
 			return true;
 		}
 
-		if (static_cast<uint8_t>(filepath[0]) >= 1 && filepath[1] == '/') {
+		if (static_cast<uint8_t>(filepath[1]) >= 1 && filepath[2] == '/') {
 			if (open_file(filepath + 1, nullptr, ctx, stack, stack_top))
 				return true;
 			if (*stack == 0x7F)
 				return false;
 		} else {
-			auto i = m_include_dirs_base;
-			while (i < m_include_dirs) {
+			auto check_user = [&](){
+				auto i = m_include_dirs_base;
 				size_t s = 1 + static_cast<size_t>(static_cast<uint8_t>(*i));
-				if (open_file(filepath + 1, i, ctx, stack, stack_top))
+				i += s;
+				while (i < m_include_dirs) {
+					size_t s = 1 + static_cast<size_t>(static_cast<uint8_t>(*i));
+					if (open_file(filepath + 1, i, ctx, stack, stack_top))
+						return true;
+					if (*stack == 0x7F)
+						return false;
+					i += s;
+				}
+				return false;
+			};
+			auto check_sys = [&](){
+				if (open_file(filepath + 1, m_include_dirs_base, ctx, stack, stack_top))
 					return true;
 				if (*stack == 0x7F)
 					return false;
-				i += s;
-			}
+				return false;
+			};
+			auto t = Token::type(filepath);
+			if (t == Token::Type::StringSysInclude) {
+				if (check_sys())
+					return true;
+				if (*stack == 0x7F)
+					return false;
+				if (check_user())
+					return true;
+				if (*stack == 0x7F)
+					return false;
+			} else if (t == Token::Type::StringLiteral) {
+				if (check_user())
+					return true;
+				if (*stack == 0x7F)
+					return false;
+				if (check_sys())
+					return true;
+				if (*stack == 0x7F)
+					return false;
+			} else
+				tactical_exit("Bad include token type", filepath[0]);
 		}
 
 		if (ctx != nullptr) {
