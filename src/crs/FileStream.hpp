@@ -66,8 +66,8 @@ public:
 
 	static inline constexpr auto crd = make_tstr(Token::Type::StringLiteral, "\\\\fls0\\NOTEC\\");
 
-	inline bool open_file(const char *base_folder, const char *search_dir, const char *filepath, const char *ctx,
-		bool is_sany, char *&stack, const char *stack_top)
+	inline bool open_file(const char *filepath, const char *search_dir, const char *ctx,
+		char *&stack, const char *stack_top)
 	{
 		char buf[1 + (search_dir != nullptr ? static_cast<size_t>(Token::size(search_dir)) : 0) + static_cast<size_t>(Token::size(filepath))];
 		if (search_dir != nullptr) {
@@ -109,8 +109,8 @@ public:
 			File::hash_path(filepath, h);
 			uint8_t s = File::hashed_len;
 			const char *d = h;
-			auto crd_s = Token::size(base_folder);
-			auto crd_d = Token::data(base_folder);
+			auto crd_s = Token::size(crd);
+			auto crd_d = Token::data(crd);
 			FONTCHARACTER path[crd_s + s + 3];
 			uint8_t i = 0;
 			for (uint8_t j = 0; j < crd_s; j++)
@@ -125,7 +125,7 @@ public:
 				return false;
 			}
 		}
-		if (is_sany)
+		if (ctx != nullptr)
 			close();
 		m_handle = hdl;
 		push_file:;
@@ -146,15 +146,15 @@ public:
 
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
-	inline bool open(const char *filepath, const char *ctx, bool is_sany, char *&stack, const char *stack_top)
+	inline bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
 	{
 		if (stack_top == nullptr) {
-			if (!open_file(crd, nullptr, filepath, ctx, is_sany, stack, nullptr))
+			if (!open_file(filepath, nullptr, ctx, stack, nullptr))
 				tactical_exit("Bfile_OpenFile failed", 0);
 			return true;
 		}
 
-		if (open_file(crd, nullptr, filepath, ctx, is_sany, stack, stack_top))
+		if (open_file(filepath, nullptr, ctx, stack, stack_top))
 			return true;
 		if (*stack == 0x7F)
 			return false;
@@ -163,16 +163,18 @@ public:
 			auto s = Token::size(ctx);
 			auto d = Token::data(ctx);
 			uint8_t i;
-			for (i = 0; i < s; i++)
-				if (d[s - 1 - i] == '/')
+			for (i = 0; i < s; i++) {
+				auto c = d[s - 1 - i];
+				if (c == '/' || c == ':')
 					break;
+			}
 			s -= i;
 			char c[2 + s];
 			for (uint8_t i = 0; i < 2 + s; i++)
 				c[i] = ctx[i];
 			c[1] = s;
 
-			if (open_file(crd, c, filepath, ctx, is_sany, stack, stack_top))
+			if (open_file(filepath, c, ctx, stack, stack_top))
 				return true;
 			if (*stack == 0x7F)
 				return false;

@@ -21,7 +21,7 @@ static std::vector<std::string> set(const char *in)
 	s.add_file("f", in);
 	char stack_base[256];
 	auto stack = stack_base;
-	test_assert(s.open(dummy_name, stack_base, false, stack, stack_base + 256));
+	test_assert(s.open(dummy_name, nullptr, stack, stack_base + 256));
 	while (auto size = s.read(buf, BufSize)) {
 		buf[size] = 0;
 		res.emplace_back(buf);

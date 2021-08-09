@@ -74,7 +74,7 @@ public:
 
 	// stack contains ptr for opened file signature or opening error
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
-	bool open(const char *filepath, const char *ctx, bool is_sany, char *&stack, const char *stack_top)
+	bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
 	{
 		static_cast<void>(ctx);	// current source location ignored for string fs (no directories)
 		const char *str = Token::data(filepath);
@@ -98,7 +98,7 @@ public:
 					return true;
 				}
 			}
-			if (is_sany)
+			if (ctx != nullptr)
 				close();
 
 			m_ndx = 0;
