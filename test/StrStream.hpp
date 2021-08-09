@@ -56,6 +56,12 @@ public:
 		m_entries = nullptr;
 	}
 
+	bool include_dir(const char *path)	// StrStream is directory-less
+	{
+		static_cast<void>(path);
+		return true;
+	}
+
 	void insert_ponce(const char *sign)
 	{
 		token_nter(sn, sign);
