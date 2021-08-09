@@ -28,7 +28,7 @@ int main(void)
 		}
 		return 1;
 	}
-	p.open(make_tstr(Token::Type::StringLiteral, "Pp.cpp"));
+	p.open(make_tstr(Token::Type::StringLiteral, "/fls0/NOTEC:Pp.cpp"));
 	while (p.next());
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>("NOTE-C - no error"));

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstdio>
 #include "cint.hpp"
 
 namespace File {
@@ -83,10 +82,7 @@ static inline bool path_absolute(const char *search, const char *path, char *out
 			*w++ = c;
 		}
 		if (w > base) {
-			auto c = w[-1];
-			if (c == ':')
-				return false;
-			if (c == '/')
+			if (is_sep(w[-1]))
 				w--;
 		}
 		{
@@ -144,6 +140,40 @@ static inline void hash_path(const char *path, hashed dst)
 	dst[10] = 'a' + ((c & 0xF0) >> 4);
 	c = base[5];
 	dst[11] = 'a' + (c & 0x0F);
+}
+
+static inline size_t path_fc_size(const char *path)
+{
+	auto s = static_cast<uint8_t>(*path);
+	return 1 +	// drive extra slash
+		s +	// rest of the string
+		hashed_len +	// hash
+		1;	// terminating null
+}
+
+// path is disposable and will be modified for hash length
+static inline void path_fc(char *path, uint16_t *out)
+{
+	auto sl = '\\';
+	*out++ = sl;
+	auto s = static_cast<uint8_t>(*path++);
+	for (uint8_t i = 0; i < s; i++) {
+		auto c = *path++;
+		if (c == '/')
+			c = sl;
+		else if (c == ':') {
+			path[-1] = static_cast<uint8_t>(s - i - 1);
+			hashed h;
+			hash_path(path - 1, h);
+			*out++ = sl;
+			auto hi = h;
+			for (uint8_t i = 0; i < hashed_len; i++)
+				*out++ = *hi++;
+			break;
+		}
+		*out++ = c;
+	}
+	*out++ = 0;
 }
 
 }

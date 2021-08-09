@@ -64,31 +64,13 @@ public:
 		m_ponce.insert(sn);
 	}
 
-	static inline constexpr auto crd = make_tstr(Token::Type::StringLiteral, "\\\\fls0\\NOTEC\\");
-
 	inline bool open_file(const char *filepath, const char *search_dir, const char *ctx,
 		char *&stack, const char *stack_top)
 	{
-		char buf[1 + (search_dir != nullptr ? static_cast<size_t>(Token::size(search_dir)) : 0) + static_cast<size_t>(Token::size(filepath))];
-		if (search_dir != nullptr) {
-			if (sizeof(buf) > 255) {
-				*stack = 0x7F;
-				return false;
-			}
-			auto b = buf;
-			auto bs = b++;
-			auto s = Token::size(search_dir);
-			auto d = Token::data(search_dir);
-			for (uint8_t i = 0; i < s; i++)
-				*b++ = *d++;
-			s = Token::size(filepath);
-			d = Token::data(filepath);
-			for (uint8_t i = 0; i < s; i++)
-				*b++ = *d++;
-			*bs = b - buf - 1;
-			filepath = buf;
-		} else
-			filepath++;
+		char buf[256];
+		if (!File::path_absolute(search_dir ? search_dir + 1 : nullptr, filepath + 1, buf, buf + sizeof buf))
+			return false;
+		filepath = buf;
 
 		if (ctx != nullptr)
 			if (streq(filepath, ctx + 1)) {
@@ -104,19 +86,8 @@ public:
 		}
 
 		{
-			File::hashed h;
-			File::hash_path(filepath, h);
-			uint8_t s = File::hashed_len;
-			const char *d = h;
-			auto crd_s = Token::size(crd);
-			auto crd_d = Token::data(crd);
-			FONTCHARACTER path[crd_s + s + 3];
-			uint8_t i = 0;
-			for (uint8_t j = 0; j < crd_s; j++)
-				path[i++] = crd_d[j];
-			for (uint8_t j = 0; j < s; j++)
-				path[i++] = d[j];
-			path[i] = 0;
+			FONTCHARACTER path[File::path_fc_size(filepath)];
+			File::path_fc(buf, path);
 			int hdl = Bfile_OpenFile(path, _OPENMODE_READ);
 			if (hdl < 0) {
 				if (hdl != IML_FILEERR_ENTRYNOTFOUND)
