@@ -87,7 +87,11 @@ public:
 
 		{
 			FONTCHARACTER path[File::path_fc_size(filepath)];
-			File::path_fc(buf, path);
+			size_t s = static_cast<size_t>(static_cast<uint8_t>(buf[0])) + 1;
+			char buf_cpy[s];
+			for (size_t i = 0; i < s; i++)
+				buf_cpy[i] = buf[i];
+			File::path_fc(buf_cpy, path);
 			int hdl = Bfile_OpenFile(path, _OPENMODE_READ);
 			if (hdl < 0) {
 				if (hdl != IML_FILEERR_ENTRYNOTFOUND)

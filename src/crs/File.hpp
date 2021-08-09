@@ -27,7 +27,8 @@ static inline bool path_absolute(const char *search, const char *path, char *out
 				return false;
 			for (uint8_t i  = 0; i < ss; i++)
 				*o++ = *search++;
-			*o++ = '/';
+			if (!is_sep(o[-1]))
+				*o++ = '/';
 		}
 		if (o + ps > out_top)
 			return false;

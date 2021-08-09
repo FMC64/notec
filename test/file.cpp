@@ -78,3 +78,10 @@ test_case(file_10)
 	char buf[256];
 	test_assert(!File::path_absolute(nullptr, make_cstr("/root/notec:folder/..:include:stdio.h"), buf, buf + sizeof buf));
 }
+
+test_case(file_11)
+{
+	char buf[256];
+	test_assert(File::path_absolute(make_cstr("/fls0/NOTEC:"), make_cstr("Pp.hpp"), buf, buf + sizeof buf));
+	test_assert(streq(buf, make_cstr("/fls0/NOTEC:Pp.hpp")));
+}
