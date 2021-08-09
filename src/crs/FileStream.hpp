@@ -90,7 +90,6 @@ public:
 		} else
 			filepath++;
 
-		int hdl;
 		if (ctx != nullptr)
 			if (streq(filepath, ctx + 1)) {
 				seek(0);
@@ -118,16 +117,16 @@ public:
 			for (uint8_t j = 0; j < s; j++)
 				path[i++] = d[j];
 			path[i] = 0;
-			hdl = Bfile_OpenFile(path, _OPENMODE_READ);
+			int hdl = Bfile_OpenFile(path, _OPENMODE_READ);
 			if (hdl < 0) {
 				if (hdl != IML_FILEERR_ENTRYNOTFOUND)
 					tactical_exit("Bfile_OpenFile failed", hdl);
 				return false;
 			}
+			if (ctx != nullptr)
+				close();
+			m_handle = hdl;
 		}
-		if (ctx != nullptr)
-			close();
-		m_handle = hdl;
 		push_file:;
 		if (stack_top != nullptr) {
 			auto s = static_cast<uint8_t>(filepath[0]);
