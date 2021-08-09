@@ -47,8 +47,26 @@ class Stream
 {
 	int m_handle;
 	StrMap::BlockGroup m_ponce;
+	static inline constexpr size_t include_dirs_size = 128;
+	char m_include_dirs_base[include_dirs_size];
+	char *m_include_dirs;
 
 public:
+	Stream(void)
+	{
+		m_include_dirs = m_include_dirs_base;
+	}
+
+	bool include_dir(const char *path)
+	{
+		size_t s = 1 + static_cast<size_t>(static_cast<uint8_t>(*path));
+		if (m_include_dirs + s > m_include_dirs_base + include_dirs_size)
+			return false;
+		for (size_t i = 0; i < s; i++)
+			*m_include_dirs++ = *path++;
+		return true;
+	}
+
 	// returns 0 on EOF
 	inline size_t read(char *buf, size_t size)
 	{
@@ -68,12 +86,12 @@ public:
 		char *&stack, const char *stack_top)
 	{
 		char buf[256];
-		if (!File::path_absolute(search_dir ? search_dir + 1 : nullptr, filepath + 1, buf, buf + sizeof buf))
+		if (!File::path_absolute(search_dir, filepath, buf, buf + sizeof buf))
 			return false;
 		filepath = buf;
 
 		if (ctx != nullptr)
-			if (streq(filepath, ctx + 1)) {
+			if (streq(filepath, ctx)) {
 				seek(0);
 				goto push_file;
 			}
@@ -104,7 +122,7 @@ public:
 		}
 		push_file:;
 		if (stack_top != nullptr) {
-			auto s = static_cast<uint8_t>(filepath[0]);
+			auto s = static_cast<uint8_t>(*filepath);
 			auto d = filepath + 1;
 			if (stack + 2 + s > stack_top) {
 				*stack = 0x7F;
@@ -122,20 +140,34 @@ public:
 	// when stack_top is nullptr, filepath contains previously opened file signature (must not be overwritten unless error)
 	inline bool open(const char *filepath, const char *ctx, char *&stack, const char *stack_top)
 	{
+		if (ctx != nullptr)
+			ctx++;
 		if (stack_top == nullptr) {
-			if (!open_file(filepath, nullptr, ctx, stack, nullptr))
+			if (!open_file(filepath + 1, nullptr, ctx, stack, nullptr))
 				tactical_exit("Bfile_OpenFile failed", 0);
 			return true;
 		}
 
-		if (open_file(filepath, nullptr, ctx, stack, stack_top))
-			return true;
-		if (*stack == 0x7F)
-			return false;
+		if (static_cast<uint8_t>(filepath[0]) >= 1 && filepath[1] == '/') {
+			if (open_file(filepath + 1, nullptr, ctx, stack, stack_top))
+				return true;
+			if (*stack == 0x7F)
+				return false;
+		} else {
+			auto i = m_include_dirs_base;
+			while (i < m_include_dirs) {
+				size_t s = 1 + static_cast<size_t>(static_cast<uint8_t>(*i));
+				if (open_file(filepath + 1, i, ctx, stack, stack_top))
+					return true;
+				if (*stack == 0x7F)
+					return false;
+				i += s;
+			}
+		}
 
 		if (ctx != nullptr) {
-			auto s = Token::size(ctx);
-			auto d = Token::data(ctx);
+			size_t s = static_cast<uint8_t>(*ctx);
+			auto d = ctx + 1;
 			uint8_t i;
 			for (i = 0; i < s; i++) {
 				auto c = d[s - 1 - i];
@@ -143,12 +175,12 @@ public:
 					break;
 			}
 			s -= i;
-			char c[2 + s];
-			for (uint8_t i = 0; i < 2 + s; i++)
+			char c[1 + s];
+			for (uint8_t i = 0; i < 1 + s; i++)
 				c[i] = ctx[i];
-			c[1] = s;
+			c[0] = s;
 
-			if (open_file(filepath, c, ctx, stack, stack_top))
+			if (open_file(filepath + 1, c, ctx, stack, stack_top))
 				return true;
 			if (*stack == 0x7F)
 				return false;

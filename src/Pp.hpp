@@ -68,6 +68,12 @@ public:
 		m_stream.push(filename);
 	}
 
+	inline void include_dir(const char *dir)
+	{
+		if (!m_stream.get_stream().include_dir(dir))
+			m_stream.error("Include directories overflow");
+	}
+
 private:
 	inline void assert_token(const char *token)
 	{
