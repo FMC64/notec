@@ -5,11 +5,20 @@
 #include "TokenStream.hpp"
 #include "StrMap.hpp"
 
+class Cpp;
+
 class Pp
 {
+	friend class Cpp;
+
 	Token::Stream m_stream;
 	StrMap::BlockGroup m_dirs;
 	StrMap::BlockGroup m_keywords;
+
+	inline void error(const char *str)
+	{
+		m_stream.error(str);
+	}
 
 	static inline constexpr size_t pmacro_count = 7;
 	static inline constexpr const char *pmacros_names[pmacro_count] = {
@@ -132,7 +141,7 @@ public:
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
 		PP_DIRECTIVE_NEXT(undef);
-		PP_DIRECTIVE_NEXT(error);
+		PP_DIRECTIVE_NEXT_V("error", derror);
 		PP_DIRECTIVE_NEXT(pragma);
 		PP_DIRECTIVE_NEXT(line);
 		PP_DIRECTIVE_NEXT_V("if", dif);
@@ -420,9 +429,9 @@ private:
 		return n;
 	}
 
-	inline const char* error(void)
+	inline const char* derror(void)
 	{
-		m_stream.error("#error");
+		error("#error");
 		__builtin_unreachable();
 	}
 
