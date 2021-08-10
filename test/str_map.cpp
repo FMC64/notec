@@ -4,25 +4,27 @@
 
 test_case(strmap_0)
 {
-	StrMap::BlockGroup m;
-	m.insert("abc", static_cast<uint16_t>(1));
+	StrMap::BlockGroup b;
+	auto m = b.alloc();
+	b.insert(m, "abc", static_cast<uint16_t>(1));
 	uint16_t res;
-	test_assert(m.resolve("abc", res));
+	test_assert(b.resolve(m, "abc", res));
 	test_assert(res == 1);
-	m.insert("abe", static_cast<uint16_t>(2));
-	test_assert(m.resolve("abe", res));
+	b.insert(m, "abe", static_cast<uint16_t>(2));
+	test_assert(b.resolve(m, "abe", res));
 	test_assert(res == 2);
 }
 
 template <typename T, size_t Size>
 static void test_strs(const char* (&strs)[Size])
 {
-	StrMap::BlockGroup m;
+	StrMap::BlockGroup b;
+	auto m = b.alloc();
 	for (size_t i = 0; i < Size; i++)
-		m.insert(strs[i], static_cast<T>(i));
+		b.insert(m, strs[i], static_cast<T>(i));
 	for (size_t i = 0; i < Size; i++) {
 		T val;
-		test_assert(m.resolve(strs[i], val));
+		test_assert(b.resolve(m, strs[i], val));
 		test_assert(val == i);
 	}
 }

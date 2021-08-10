@@ -12,8 +12,9 @@ class Pp
 	friend class Cpp;
 
 	Token::Stream m_stream;
-	StrMap::BlockGroup m_dirs;
-	StrMap::BlockGroup m_keywords;
+	StrMap::BlockGroup m_blk;
+	uint16_t m_dirs;
+	uint16_t m_keywords;
 
 	inline void error(const char *str)
 	{
@@ -136,8 +137,12 @@ class Pp
 public:
 	inline Pp(void)
 	{
-		#define PP_DIRECTIVE_NEXT(id) m_dirs.insert(#id, &Pp::id)
-		#define PP_DIRECTIVE_NEXT_V(name, id) m_dirs.insert(name, &Pp::id)
+		m_dirs = m_blk.alloc();
+		m_keywords = m_blk.alloc();
+		m_macros = m_blk.alloc();
+
+		#define PP_DIRECTIVE_NEXT(id) m_blk.insert(m_dirs, #id, &Pp::id)
+		#define PP_DIRECTIVE_NEXT_V(name, id) m_blk.insert(m_dirs, name, &Pp::id)
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
 		PP_DIRECTIVE_NEXT(undef);
@@ -156,12 +161,12 @@ public:
 		alloc(pmacro_count);
 		for (size_t i = 0; i < array_size(pmacros_names); i++) {
 			auto c = m_size++;
-			m_macros.insert(pmacros_names[i], static_cast<uint16_t>(c));
+			m_blk.insert(m_macros, pmacros_names[i], static_cast<uint16_t>(c));
 			m_buffer[c] = c + 1;	// 0 is reserved for regular macro
 		}
 
 		for (size_t i = 0; i < array_size(keyword_defs); i++)
-			m_keywords.insert(keyword_defs[i].name, keyword_defs[i].op);
+			m_blk.insert(m_keywords, keyword_defs[i].name, keyword_defs[i].op);
 	}
 	inline ~Pp(void)
 	{
@@ -274,7 +279,7 @@ private:
 		return next_token();
 	}
 
-	StrMap::BlockGroup m_macros;
+	uint16_t m_macros;
 	char *m_buffer = nullptr;
 	size_t m_size = 0;
 	size_t m_allocated = 0;
@@ -330,7 +335,7 @@ private:
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		size_t base_size = m_size;
-		bool suc_ins = m_macros.insert(nn, static_cast<uint16_t>(m_size));
+		bool suc_ins = m_blk.insert(m_macros, nn, static_cast<uint16_t>(m_size));
 		auto name_off = m_stream.get_off();
 		alloc(2);
 		m_buffer[m_size++] = 0;	// regular macro
@@ -404,7 +409,7 @@ private:
 			auto size = m_size - base_size;
 			auto n = &m_buffer[m_size - size];
 			uint16_t e_ndx;
-			m_macros.resolve(nn, e_ndx);
+			m_blk.resolve(m_macros, nn, e_ndx);
 			auto e = &m_buffer[e_ndx];
 			for (size_t i = 0; i < size; i++)
 				if (e[i] != n[i])
@@ -423,7 +428,7 @@ private:
 			error("Expected token");
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
-		m_macros.remove(nn);
+		m_blk.remove(m_macros, nn);
 		if (next_token_dir(n))
 			error("Expected no further token");
 		return n;
@@ -494,7 +499,7 @@ private:
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		const char* (Pp::*dir)(void);
-		if (!m_dirs.resolve(nn, dir))
+		if (!m_blk.resolve(m_dirs, nn, dir))
 			error("Unknown directive");
 		return (this->*dir)();
 	}
@@ -1038,7 +1043,7 @@ private:
 				}
 				assert_token_type(n, Token::Type::Identifier);
 				token_nter(nn, n);
-				auto r = Val{m_macros.resolve(nn), true};
+				auto r = Val{m_blk.resolve(m_macros, nn), true};
 				if (has_par) {
 					if (!next_token_dir_exp_nntexp(n))
 						error("Expected )");
@@ -1137,7 +1142,7 @@ private:
 					const char* (Pp::*dir)(void);
 					{
 						token_nter(nn, n);
-						if (!m_dirs.resolve(nn, dir))
+						if (!m_blk.resolve(m_dirs, nn, dir))
 							error("Unknown directive");
 					}
 					if (dir == &Pp::ifdef || dir == &Pp::ifndef || dir == &Pp::dif)
@@ -1201,7 +1206,7 @@ private:
 		bool match;
 		{
 			token_nter(nn, n);
-			match = m_macros.resolve(nn) ^ seek_undef;
+			match = m_blk.resolve(m_macros, nn) ^ seek_undef;
 		}
 		if (next_token_dir(n))
 			error("Expected no further token");

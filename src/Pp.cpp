@@ -363,7 +363,7 @@ const char* Pp::next_base(void)
 				if (Token::type(n) == Token::Type::Identifier) {
 					token_nter(nn, n);
 					uint16_t ndx;
-					if (m_macros.resolve(nn, ndx)) {
+					if (m_blk.resolve(m_macros, nn, ndx)) {
 						if (m_buffer[ndx])	// predefined macro
 							n = (this->*pmacros[m_buffer[ndx]])();
 						else {
@@ -505,7 +505,7 @@ const char* Pp::next(void)
 		} else if (t == Token::Type::Identifier) {
 			Token::Op op;
 			token_nter(nn, n);
-			if (m_keywords.resolve(nn, op)) {
+			if (m_blk.resolve(m_keywords, nn, op)) {
 				*m_stack = static_cast<char>(Token::Type::Operator);
 				m_stack[1] = static_cast<uint8_t>(op);
 				return m_stack;

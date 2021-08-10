@@ -2,9 +2,9 @@
 
 namespace StrMap {
 
-bool BlockGroup::resolve_u16(const char *str, uint16_t payload_size, uint16_t *res)
+bool BlockGroup::resolve_u16(uint16_t root, const char *str, uint16_t payload_size, uint16_t *res)
 {
-	auto i = resolve_node(str);
+	auto i = resolve_node(root, str);
 	auto cur = m_root[i];
 	if (*str == 0 && cur.control & Block::Control::has_payload) {
 		for (uint16_t j = 0; j < payload_size; j++)
@@ -14,9 +14,9 @@ bool BlockGroup::resolve_u16(const char *str, uint16_t payload_size, uint16_t *r
 		return false;
 }
 
-const char* BlockGroup::resolve_u8(const char *str)
+const char* BlockGroup::resolve_u8(uint16_t root, const char *str)
 {
-	auto i = resolve_node(str);
+	auto i = resolve_node(root, str);
 	auto cur = m_root[i];
 	if (*str == 0 && cur.control & Block::Control::has_payload)
 		return reinterpret_cast<const char*>(m_root + i + 3);
@@ -24,10 +24,10 @@ const char* BlockGroup::resolve_u8(const char *str)
 		return nullptr;
 }
 
-bool BlockGroup::insert_u16(const char *str, uint16_t payload_size, const uint16_t *payload)
+bool BlockGroup::insert_u16(uint16_t root, const char *str, uint16_t payload_size, const uint16_t *payload)
 {
 	bool is_child;
-	auto ind = resolve_node(str, &is_child);
+	auto ind = resolve_node(root, str, &is_child);
 	auto cur = m_root[ind];
 	if (*str == 0 && cur.control & Block::Control::has_payload)
 		return false;

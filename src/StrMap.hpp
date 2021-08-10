@@ -45,9 +45,9 @@ class BlockGroup
 		return m_count;
 	}
 
-	inline uint16_t resolve_node(const char *&str, bool *stopped_out_of_children = nullptr)
+	inline uint16_t resolve_node(uint16_t root, const char *&str, bool *stopped_out_of_children = nullptr)
 	{
-		uint16_t cur_i = 0;
+		uint16_t cur_i = root;
 		while (true) {
 			auto cur = m_root[cur_i];
 			if (cur.c == *str) {	// visit next child
@@ -75,11 +75,11 @@ class BlockGroup
 		}
 	}
 
-	bool resolve_u16(const char *str, uint16_t payload_size, uint16_t *res);
+	bool resolve_u16(uint16_t root, const char *str, uint16_t payload_size, uint16_t *res);
 
-	const char* resolve_u8(const char *str);
+	const char* resolve_u8(uint16_t root, const char *str);
 
-	bool insert_u16(const char *str, uint16_t payload_size, const uint16_t *payload);
+	bool insert_u16(uint16_t root, const char *str, uint16_t payload_size, const uint16_t *payload);
 
 	template <typename T>
 	static constexpr uint16_t get_payload_size(void)
@@ -93,29 +93,24 @@ class BlockGroup
 public:
 	inline BlockGroup(void)
 	{
-		add_blocks(3);
-		auto n = &m_root[m_count++];
-		m_count += 2;
-		n->c = 0x7F;
-		n->control = 0;
 	}
 	inline ~BlockGroup(void)
 	{
 		free(m_root);
 	}
 
-	inline bool resolve(const char *str)
+	inline bool resolve(uint16_t root, const char *str)
 	{
-		return resolve_u16(str, 0, nullptr);
+		return resolve_u16(root, str, 0, nullptr);
 	}
 
 	template <typename T>
-	inline bool resolve(const char *str, T &res)
+	inline bool resolve(uint16_t root, const char *str, T &res)
 	{
 		if constexpr (sizeof(T) % 2 == 0)
-			return resolve_u16(str, get_payload_size<T>(), &reinterpret_cast<uint16_t&>(res));
+			return resolve_u16(root, str, get_payload_size<T>(), &reinterpret_cast<uint16_t&>(res));
 		else {
-			auto c = resolve_u8(str);
+			auto c = resolve_u8(root, str);
 			if (c == nullptr)
 				return false;
 			for (size_t i = 0; i < sizeof(T); i++)
@@ -124,32 +119,43 @@ public:
 		}
 	}
 
-	inline bool insert(const char *str)
+	inline bool insert(uint16_t root, const char *str)
 	{
-		return insert_u16(str, 0, nullptr);
+		return insert_u16(root, str, 0, nullptr);
 	}
 
 	template <typename T>
-	inline bool insert(const char *str, const T &payload)
+	inline bool insert(uint16_t root, const char *str, const T &payload)
 	{
 		if constexpr (sizeof(T) % 2 == 0)
-			return insert_u16(str, get_payload_size<T>(), &reinterpret_cast<const uint16_t&>(payload));
+			return insert_u16(root, str, get_payload_size<T>(), &reinterpret_cast<const uint16_t&>(payload));
 		else {
 			uint16_t payload16[get_payload_size<T>()];
 			for (size_t i = 0; i < sizeof(T); i++)
 				reinterpret_cast<char*>(payload16)[i] = reinterpret_cast<const char*>(&payload)[i];
-			return insert_u16(str, get_payload_size<T>(), payload16);
+			return insert_u16(root, str, get_payload_size<T>(), payload16);
 		}
 	}
 
-	inline bool remove(const char *str)
+	inline bool remove(uint16_t root, const char *str)
 	{
-		auto n = resolve_node(str);
+		auto n = resolve_node(root, str);
 		if (*str == 0) {
 			m_root[n].control &= ~Block::Control::has_payload;
 			return true;
 		}
 		return false;
+	}
+
+	inline uint16_t alloc(void)
+	{
+		add_blocks(3);
+		auto r = m_count;
+		auto n = &m_root[m_count++];
+		m_count += 2;
+		n->c = 0x7F;
+		n->control = 0;
+		return r;
 	}
 
 private:

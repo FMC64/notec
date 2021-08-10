@@ -9,7 +9,8 @@
 
 class StrStream
 {
-	StrMap::BlockGroup m_ponce;
+	StrMap::BlockGroup m_blk;
+	uint16_t m_ponce;
 	size_t m_ndx;
 
 public:
@@ -43,6 +44,7 @@ public:
 
 	StrStream(void)
 	{
+		m_ponce = m_blk.alloc();
 	}
 	~StrStream(void)
 	{
@@ -65,7 +67,7 @@ public:
 	void insert_ponce(const char *sign)
 	{
 		token_nter(sn, sign);
-		m_ponce.insert(sn);
+		m_blk.insert(m_ponce, sn);
 	}
 
 	size_t read(char *buf, size_t size)
@@ -99,7 +101,7 @@ public:
 
 			if (stack_top != nullptr) {	// don't check pragma once on resume
 				token_nter(fn, filepath);
-				if (m_ponce.resolve(fn)) {
+				if (m_blk.resolve(m_ponce, fn)) {
 					*stack = 0x7E;
 					return true;
 				}
