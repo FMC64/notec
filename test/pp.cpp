@@ -652,3 +652,17 @@ test_case(pp_38)
 	next_assert_op(p, Token::Type::Operator, Token::Op::Semicolon);
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_39)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "#ifdef __cplusplus\nextern \"C\" {\n#else\nerr\n#endif\ne");
+	p.open(dummy_name);
+	next_assert_op(p, Token::Type::Operator, Token::Op::Extern);
+	next_assert(p, Token::Type::StringLiteral, "C");
+	next_assert_op(p, Token::Type::Operator, Token::Op::LBra);
+	next_assert(p, Token::Type::Identifier, "e");
+	test_assert(p.next() == nullptr);
+}

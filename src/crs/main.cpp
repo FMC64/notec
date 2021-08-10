@@ -28,9 +28,9 @@ int main(void)
 		}
 		return 1;
 	}
-	c.include_dir(make_cstr("/fls0/INCLUDE:"));	// first dir is system include
-	c.include_dir(make_cstr("/fls0/SRC:src"));
-	c.open(make_tstr(Token::Type::StringLiteral, "Pp.cpp"));
+	c.include_dir(make_cstr("/crd0:"));	// first dir is system include
+	c.include_dir(make_cstr("/crd0:src"));
+	c.open(make_tstr(Token::Type::StringLiteral, "fxlib.h"));
 	c.run();
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>("NOTE-C - no error"));
