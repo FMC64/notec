@@ -44,7 +44,7 @@ class Pp
 		{"char16_t", Token::Op::Char16_t},
 		{"char32_t", Token::Op::Char32_t},
 		{"class", Token::Op::Class},
-		{"compl", Token::Op::Compl},
+		{"compl", Token::Op::Tilde},
 		{"concept", Token::Op::Concept},
 		{"const", Token::Op::Const},
 		{"consteval", Token::Op::Consteval},

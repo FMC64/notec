@@ -129,7 +129,6 @@ enum class Op : uint8_t {
 	Char16_t,
 	Char32_t,
 	Class,
-	Compl,
 	Concept,
 	Const,
 	Consteval,
