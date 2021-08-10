@@ -49,16 +49,18 @@ class Cpp
 		auto n = next_exp();
 		if (Token::is_op(n, Token::Op::LBra)) {
 			n = next_exp();
-			parse_obj(n, is_c);
-			n = next_exp();
-			if (Token::is_op(n, Token::Op::RBra))
-				error("Expected '}'");
+			if (!Token::is_op(n, Token::Op::RBra)) {
+				parse_obj(n);
+				n = next_exp();
+				if (!Token::is_op(n, Token::Op::RBra))
+					error("Expected '}'");
+			}
 		} else
-			parse_obj(n, is_c);
+			parse_obj(n);
 		m_is_c_linkage = last;
 	}
 
-	inline void parse_obj(const char *n, bool is_c_linkage = false)
+	inline void parse_obj(const char *n)
 	{
 		if (Token::is_op(n, Token::Op::Extern)) {
 			n = next_exp();
