@@ -46,7 +46,8 @@ static inline void tactical_exit(const char *msg, int code)
 class Stream
 {
 	int m_handle;
-	StrMap::BlockGroup m_ponce;
+	StrMap::BlockGroup m_blk;
+	uint16_t m_ponce;
 	static inline constexpr size_t include_dirs_size = 128;
 	char m_include_dirs_base[include_dirs_size];
 	char *m_include_dirs;
@@ -54,6 +55,7 @@ class Stream
 public:
 	Stream(void)
 	{
+		m_ponce = m_blk.alloc();
 		m_include_dirs = m_include_dirs_base;
 	}
 
@@ -79,7 +81,7 @@ public:
 	void insert_ponce(const char *sign)
 	{
 		token_nter(sn, sign);
-		m_ponce.insert(sn);
+		m_blk.insert(m_ponce, sn);
 	}
 
 	inline bool open_file(const char *filepath, const char *search_dir, const char *ctx,
@@ -97,7 +99,7 @@ public:
 			}
 		if (stack_top != nullptr) {	// don't check pragma once on resume
 			token_nter(fn, filepath - 1);
-			if (m_ponce.resolve(fn)) {
+			if (m_blk.resolve(m_ponce, fn)) {
 				*stack = 0x7E;
 				return true;
 			}
