@@ -9,6 +9,7 @@ class Pp
 {
 	Token::Stream m_stream;
 	StrMap::BlockGroup m_dirs;
+	StrMap::BlockGroup m_keywords;
 
 	static inline constexpr size_t pmacro_count = 7;
 	static inline constexpr const char *pmacros_names[pmacro_count] = {
@@ -19,6 +20,108 @@ class Pp
 		"__STDC_HOSTED__",
 		"__STDCPP_DEFAULT_NEW_ALIGNMENT__",
 		"__TIME__"
+	};
+
+	struct KeywordDef {
+		const char *name;
+		Token::Op op;
+	};
+	static inline constexpr KeywordDef keyword_defs[] = {
+		{"alignas", Token::Op::Alignas},
+		{"alignof", Token::Op::Alignof},
+		{"and", Token::Op::And},
+		{"and_eq", Token::Op::BitAndEqual},
+		{"asm", Token::Op::Asm},
+		{"auto", Token::Op::Auto},
+		{"bitand", Token::Op::BitAnd},
+		{"bitor", Token::Op::BitOr},
+		{"bool", Token::Op::Bool},
+		{"break", Token::Op::Break},
+		{"case", Token::Op::Case},
+		{"catch", Token::Op::Catch},
+		{"char", Token::Op::Char},
+		{"char8_t", Token::Op::Char8_t},
+		{"char16_t", Token::Op::Char16_t},
+		{"char32_t", Token::Op::Char32_t},
+		{"class", Token::Op::Class},
+		{"compl", Token::Op::Compl},
+		{"concept", Token::Op::Concept},
+		{"const", Token::Op::Const},
+		{"consteval", Token::Op::Consteval},
+		{"constexpr", Token::Op::Constexpr},
+		{"constinit", Token::Op::Constinit},
+		{"constinit", Token::Op::Constinit},
+		{"const_cast", Token::Op::ConstCast},
+		{"continue", Token::Op::Continue},
+		{"co_await", Token::Op::CoAwait},
+		{"co_return", Token::Op::CoReturn},
+		{"co_yield", Token::Op::CoYield},
+
+		{"decltype", Token::Op::Decltype},
+		{"default", Token::Op::Default},
+		{"delete", Token::Op::Delete},
+		{"do", Token::Op::Do},
+		{"double", Token::Op::Double},
+		{"dynamic_cast", Token::Op::DynamicCast},
+		{"else", Token::Op::Else},
+		{"enum", Token::Op::Enum},
+		{"explicit", Token::Op::Explicit},
+		{"export", Token::Op::Export},
+		{"extern", Token::Op::Extern},
+		{"false", Token::Op::False},
+		{"float", Token::Op::Float},
+		{"for", Token::Op::For},
+		{"friend", Token::Op::Friend},
+		{"goto", Token::Op::Goto},
+		{"if", Token::Op::If},
+		{"inline", Token::Op::Inline},
+		{"int", Token::Op::Int},
+		{"long", Token::Op::Long},
+		{"mutable", Token::Op::Mutable},
+		{"namespace", Token::Op::Namespace},
+		{"new", Token::Op::New},
+		{"noexcept", Token::Op::Noexcept},
+		{"not", Token::Op::Not},
+		{"not_eq", Token::Op::NotEqual},
+		{"nullptr", Token::Op::Nullptr},
+		{"operator", Token::Op::Operator},
+		{"or", Token::Op::Or},
+		{"or_eq", Token::Op::BitOrEqual},
+		{"private", Token::Op::Private},
+		{"protected", Token::Op::Protected},
+		{"public", Token::Op::Public},
+
+		{"register", Token::Op::Register},
+		{"reinterpret_cast", Token::Op::ReinterpretCast},
+		{"requires", Token::Op::Requires},
+		{"return", Token::Op::Return},
+		{"short", Token::Op::Short},
+		{"signed", Token::Op::Signed},
+		{"sizeof", Token::Op::Sizeof},
+		{"static", Token::Op::Static},
+		{"static_assert", Token::Op::StaticAssert},
+		{"static_cast", Token::Op::StaticCast},
+		{"struct", Token::Op::Struct},
+		{"switch", Token::Op::Switch},
+		{"template", Token::Op::Template},
+		{"this", Token::Op::This},
+		{"thread_local", Token::Op::ThreadLocal},
+		{"throw", Token::Op::Throw},
+		{"true", Token::Op::True},
+		{"try", Token::Op::Try},
+		{"typedef", Token::Op::Typedef},
+		{"typeid", Token::Op::Typeid},
+		{"typename", Token::Op::Typename},
+		{"union", Token::Op::Union},
+		{"unsigned", Token::Op::Unsigned},
+		{"using", Token::Op::Using},
+		{"virtual", Token::Op::Virtual},
+		{"void", Token::Op::Void},
+		{"volatile", Token::Op::Volatile},
+		{"wchar_t", Token::Op::Wchar_t},
+		{"while", Token::Op::While},
+		{"xor", Token::Op::BitXor},
+		{"xor_eq", Token::Op::BitXorEqual}
 	};
 
 public:
@@ -47,6 +150,9 @@ public:
 			m_macros.insert(pmacros_names[i], static_cast<uint16_t>(c));
 			m_buffer[c] = c + 1;	// 0 is reserved for regular macro
 		}
+
+		for (size_t i = 0; i < array_size(keyword_defs); i++)
+			m_keywords.insert(keyword_defs[i].name, keyword_defs[i].op);
 	}
 	inline ~Pp(void)
 	{

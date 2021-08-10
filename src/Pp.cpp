@@ -473,33 +473,44 @@ const char* Pp::next_base(void)
 const char* Pp::next(void)
 {
 	auto n = next_base();
-	if (n != nullptr && Token::type(n) == Token::Type::StringLiteral) {
-		char stack_base[stack_size];
-		auto stack = stack_base;
-		*stack++ = static_cast<char>(Token::Type::StringLiteral);
-		{
-			auto &sb = *stack++;
-			sb = 0;
-			while (true) {
-				auto s = Token::size(n);
-				if (stack + s > stack_base + stack_size)
-					m_stream.error("String stack overflow");
-				sb += s;
-				auto d = Token::data(n);
-				for (uint8_t i = 0; i < s; i++)
-					*stack++ = *d++;
-				n = next_base();
-				if (n == nullptr || Token::type(n) != Token::Type::StringLiteral)
-					break;
+	if (n != nullptr) {
+		auto t = Token::type(n);
+		if (t == Token::Type::StringLiteral) {
+			char stack_base[stack_size];
+			auto stack = stack_base;
+			*stack++ = static_cast<char>(Token::Type::StringLiteral);
+			{
+				auto &sb = *stack++;
+				sb = 0;
+				while (true) {
+					auto s = Token::size(n);
+					if (stack + s > stack_base + stack_size)
+						m_stream.error("String stack overflow");
+					sb += s;
+					auto d = Token::data(n);
+					for (uint8_t i = 0; i < s; i++)
+						*stack++ = *d++;
+					n = next_base();
+					if (n == nullptr || Token::type(n) != Token::Type::StringLiteral)
+						break;
+				}
+			}
+			push_stream_token(n);	// push next token
+			auto s = static_cast<uint8_t>(stack - stack_base);
+			if (m_stack + s > m_stack_base + stack_size)
+				m_stream.error("Macro stack overflow");
+			for (uint8_t i = 0; i < s; i++)
+				m_stack[i] = stack_base[i];
+			return m_stack;
+		} else if (t == Token::Type::Identifier) {
+			Token::Op op;
+			token_nter(nn, n);
+			if (m_keywords.resolve(nn, op)) {
+				*m_stack = static_cast<char>(Token::Type::Operator);
+				m_stack[1] = static_cast<uint8_t>(op);
+				return m_stack;
 			}
 		}
-		push_stream_token(n);	// push next token
-		auto s = static_cast<uint8_t>(stack - stack_base);
-		if (m_stack + s > m_stack_base + stack_size)
-			m_stream.error("Macro stack overflow");
-		for (uint8_t i = 0; i < s; i++)
-			m_stack[i] = stack_base[i];
-		return m_stack;
-	} else
-		return n;
+	}
+	return n;
 }

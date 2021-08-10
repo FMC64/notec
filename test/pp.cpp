@@ -637,3 +637,18 @@ R"raw(
 	next_assert(p, Token::Type::Identifier, "e");
 	test_assert(p.next() == nullptr);
 }
+
+test_case(pp_38)
+{
+	Pp p;
+	auto &s = p.get_stream();
+	s.set_file_count(1);
+	s.add_file("f", "return 1 + 2;");
+	p.open(dummy_name);
+	next_assert_op(p, Token::Type::Operator, Token::Op::Return);
+	next_assert(p, Token::Type::NumberLiteral, "1");
+	next_assert_op(p, Token::Type::Operator, Token::Op::Plus);
+	next_assert(p, Token::Type::NumberLiteral, "2");
+	next_assert_op(p, Token::Type::Operator, Token::Op::Semicolon);
+	test_assert(p.next() == nullptr);
+}

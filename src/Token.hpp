@@ -42,7 +42,7 @@ static inline const char* data(const char *token)
 	return &token[2];
 }
 
-enum class Op : char {
+enum class Op : uint8_t {
 	Not = 0,	// !
 	Plus = 1,	// +
 	Minus = 2,	// -
@@ -66,53 +66,140 @@ enum class Op : char {
 
 	BitAndEqual = 20,	// &=
 
-	Or = 21,	// |
-	BitOrEqual = 22,	// |=
+	Or,	// |
+	BitOrEqual,	// |=
 
-	BitXorEqual = 23,	// ^=
+	BitXorEqual,	// ^=
 
-	MulEqual = 24,	// *=
+	MulEqual,	// *=
 
-	DivEqual = 25,	// /=
-	Comment = 26,	// /*
-	SLComment = 27,	// //
+	DivEqual,	// /=
+	Comment,	// /*
+	SLComment,	// //
 
-	ModEqual = 28,	// %=
+	ModEqual,	// %=
 
-	LessEqual = 29,	// <=
-	BitLeft = 30,	// <<
-	BitLeftEqual = 31,	// <<=
+	LessEqual,	// <=
+	BitLeft,	// <<
+	BitLeftEqual,	// <<=
 
-	GreaterEqual = 32,	// >=
-	BitRight = 33,	// >>
-	BitRightEqual = 34,	// >>=
+	GreaterEqual,	// >=
+	BitRight,	// >>
+	BitRightEqual,	// >>=
 
-	EqualEqual = 35,	// ==
-	Expand = 36,	// ...
+	EqualEqual,	// ==
+	Expand,	// ...
 
-	LPar = 37,	// (
-	RPar = 38,	// )
-	LArr = 39,	// [
-	RArr = 40,	// ]
-	Tilde = 41,	// ~
-	Comma = 42,	// ,
-	Huh = 43,	// ?
-	DoubleSharp = 44,	// ##
-	Semicolon = 45,	// ;
-	LBra = 46,	// {
-	RBra = 47,	// }
+	LPar,	// (
+	RPar,	// )
+	LArr,	// [
+	RArr,	// ]
+	Tilde,	// ~
+	Comma,	// ,
+	Huh,	// ?
+	DoubleSharp,	// ##
+	Semicolon,	// ;
+	LBra,	// {
+	RBra,	// }
 
-	TWComp = 48,	// <=>
-	Scope = 49,	// ::
+	TWComp,	// <=>
+	Scope,	// ::
 
-	MinusMinus = 50,	// --
-	MinusEqual = 51,	// -=
+	MinusMinus,	// --
+	MinusEqual,	// -=
 
-	PointMember = 52,	// .*
-	ArrowMember = 53,	// ->*
+	PointMember,	// .*
+	ArrowMember,	// ->*
 
-	Arrow = 54,	// ->
-	And = 55,	// &
+	Arrow,	// ->
+	And,	// &
+
+
+	// keywords
+	Alignas,
+	Alignof,
+	Asm,
+	Auto,
+	Bool,
+	Break,
+	Case,
+	Catch,
+	Char,
+	Char8_t,
+	Char16_t,
+	Char32_t,
+	Class,
+	Compl,
+	Concept,
+	Const,
+	Consteval,
+	Constexpr,
+	Constinit,
+	ConstCast,
+	Continue,
+	CoAwait,
+	CoReturn,
+	CoYield,
+
+	Decltype,
+	Default,
+	Delete,
+	Do,
+	Double,
+	DynamicCast,
+	Else,
+	Enum,
+	Explicit,
+	Export,
+	Extern,
+	False,
+	Float,
+	For,
+	Friend,
+	Goto,
+	If,
+	Inline,
+	Int,
+	Long,
+	Mutable,
+	Namespace,
+	New,
+	Noexcept,
+	Nullptr,
+	Operator,
+	Private,
+	Protected,
+	Public,
+
+	Register,
+	ReinterpretCast,
+	Requires,
+	Return,
+	Short,
+	Signed,
+	Sizeof,
+	Static,
+	StaticAssert,
+	StaticCast,
+	Struct,
+	Switch,
+	Template,
+	This,
+	ThreadLocal,
+	Throw,
+	True,
+	Try,
+	Typedef,
+	Typeid,
+	Typename,
+	Union,
+	Unsigned,
+	Using,
+	Virtual,
+	Void,
+	Volatile,
+	Wchar_t,
+	While
 };
 static inline constexpr auto last_op = Op::And;
 
