@@ -186,20 +186,20 @@ public:
 	inline void include_dir(const char *dir)
 	{
 		if (!m_stream.get_stream().include_dir(dir))
-			m_stream.error("Include directories overflow");
+			error("Include directories overflow");
 	}
 
 private:
 	inline void assert_token(const char *token)
 	{
 		if (token == nullptr)
-			m_stream.error("Expected token");
+			error("Expected token");
 	}
 
 	inline void assert_token_type(const char *token, Token::Type type)
 	{
 		if (Token::type(token) != type)
-			m_stream.error("Bad token type");
+			error("Bad token type");
 	}
 
 	inline const char* next_token(void)
@@ -211,7 +211,7 @@ private:
 				return res;
 			if (m_stream.pop()) {
 				if (next_token_dir_exp(res))
-					m_stream.error("Expected no futher token");
+					error("Expected no futher token");
 				return res;
 			} else
 				return nullptr;
@@ -249,7 +249,7 @@ private:
 	{
 		const char *n;
 		if (!next_token_dir_exp(n))
-			m_stream.error("Expected string");
+			error("Expected string");
 		assert_token(n);
 		auto t = Token::type(n);
 		if (t == Token::Type::StringLiteral)
@@ -262,7 +262,7 @@ private:
 			auto base = stack;
 			while (true) {
 				if (!next_token_dir_exp(n))
-					m_stream.error("Expected token");
+					error("Expected token");
 				if (Token::is_op(n, Token::Op::Greater))
 					break;
 				tok_str(n, stack, stack_base + stack_size, nullptr);
@@ -270,7 +270,7 @@ private:
 			*s = static_cast<uint8_t>(stack - base);
 			m_stream.push(stack_base);
 		} else
-			m_stream.error("Expected string");
+			error("Expected string");
 		return next_token();
 	}
 
@@ -326,7 +326,7 @@ private:
 	{
 		const char *n;
 		if (!next_token_dir(n))
-			m_stream.error("Expected token");
+			error("Expected token");
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		size_t base_size = m_size;
@@ -345,38 +345,38 @@ private:
 				bool expect_end = false;
 				while (true) {
 					if (!next_token_dir(n))
-						m_stream.error("Expected token");
+						error("Expected token");
 					if (Token::type(n) == Token::Type::Identifier) {
 						auto size = Token::size(n);
 						if (arg_top + size + 1 >= args + define_arg_size)
-							m_stream.error("Argument overflow");
+							error("Argument overflow");
 						auto data = Token::data(n);
 						for (uint8_t i = 0; i < size; i++)
 							*arg_top++ = *data++;
 						*arg_top++ = 0;
 						arg_count++;
 						if (!next_token_dir(n))
-							m_stream.error("Expected token");
+							error("Expected token");
 					} else if (Token::is_op(n, Token::Op::Expand)) {
 						has_va = true;
 						expect_end = true;
 						if (!next_token_dir(n))
-							m_stream.error("Expected token");
+							error("Expected token");
 					} else if (expect_id)
-						m_stream.error("Expected token");
+						error("Expected token");
 					if (Token::type(n) == Token::Type::Operator) {
 						auto o = Token::op(n);
 						if (o == Token::Op::Comma) {
 							if (expect_end)
-								m_stream.error("Expected ')'");
+								error("Expected ')'");
 							if (arg_count == 0)
-								m_stream.error("Expected arg before");
+								error("Expected arg before");
 							expect_id = true;
 							continue;
 						} else if (o == Token::Op::RPar)
 							break;
 					}
-					m_stream.error("Expected ',' or ')'");
+					error("Expected ',' or ')'");
 				}
 				if (arg_count == 0 && !has_va)	// one unamed argument at beginning
 					arg_count = 1;	// no first argument is indistiguishable from empty first arg
@@ -408,7 +408,7 @@ private:
 			auto e = &m_buffer[e_ndx];
 			for (size_t i = 0; i < size; i++)
 				if (e[i] != n[i])
-					m_stream.error("Redefinition do not match");
+					error("Redefinition do not match");
 			m_size -= size;	// don't keep same buffer
 		}
 		return n;
@@ -420,12 +420,12 @@ private:
 	{
 		const char *n;
 		if (!next_token_dir(n))
-			m_stream.error("Expected token");
+			error("Expected token");
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		m_macros.remove(nn);
 		if (next_token_dir(n))
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		return n;
 	}
 
@@ -447,7 +447,7 @@ private:
 					m_stream.get_stream().insert_ponce(sign);
 				}
 				if (next_token_dir(n))
-					m_stream.error("Expected no further token");
+					error("Expected no further token");
 			}
 		}
 		return n;
@@ -457,9 +457,9 @@ private:
 	{
 		const char *n;
 		if (!next_token_dir_exp(n))
-			m_stream.error("Expected token");
+			error("Expected token");
 		if (Token::type(n) != Token::Type::NumberLiteral)
-			m_stream.error("Expected number");
+			error("Expected number");
 		size_t l = 0;
 		{
 			auto s = Token::size(n);
@@ -469,7 +469,7 @@ private:
 				uint8_t ir = s - 1 - i;
 				auto c = d[ir];
 				if (!Token::Char::is_digit(c))
-					m_stream.error("Expected only digits");
+					error("Expected only digits");
 				l += static_cast<size_t>(static_cast<uint8_t>(c - '0')) * w;
 				w *= 10;
 			}
@@ -479,10 +479,10 @@ private:
 		if (!next_token_dir_exp(n))
 			return n;
 		if (Token::type(n) != Token::Type::StringLiteral)
-			m_stream.error("Expected string");
+			error("Expected string");
 		m_stream.set_file_alias(n);
 		if (next_token_dir_exp(n))
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		return n;
 	}
 
@@ -495,7 +495,7 @@ private:
 		token_nter(nn, n);
 		const char* (Pp::*dir)(void);
 		if (!m_dirs.resolve(nn, dir))
-			m_stream.error("Unknown directive");
+			error("Unknown directive");
 		return (this->*dir)();
 	}
 
@@ -531,7 +531,7 @@ private:
 				n++;
 			}
 			if (m_stack + 5 > m_stack_base + stack_size)
-				m_stream.error("Macro stack overflow");
+				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::arg;
 			m_stack += store(m_stack, static_cast<uint16_t>(n - m_stack_base));
 			m_stack += store(m_stack, static_cast<uint16_t>(5));
@@ -578,10 +578,10 @@ private:
 						else {
 							if (can_spat && last != nullptr) {
 								if (!define_is_tok_spattable_ll(n))
-									m_stream.error("Invalid token for spatting");
+									error("Invalid token for spatting");
 								auto s = Token::size(n);
 								if (stack + s > stack_base + stack_size)
-									m_stream.error("Macro stack overflow");
+									error("Macro stack overflow");
 								auto d = Token::data(n);
 								for (uint8_t i = 0; i < s; i++)
 									*stack++ = *d++;
@@ -590,7 +590,7 @@ private:
 								last = stack;
 								auto s = Token::whole_size(n);
 								if (stack + s > stack_base + stack_size)
-									m_stream.error("Macro stack overflow");
+									error("Macro stack overflow");
 								for (uint8_t i = 0; i < s; i++)
 									*stack++ = *n++;
 							}
@@ -604,11 +604,11 @@ private:
 				can_spat = true;
 			}
 			if (stack + 1 > stack_base + stack_size)
-				m_stream.error("Macro stack overflow");
+				error("Macro stack overflow");
 			*stack++ = TokType::end;
 			uint16_t s = stack - stack_base;
 			if (m_stack + 5 + s > m_stack_base + stack_size)
-				m_stream.error("Macro stack overflow");
+				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::arg;
 			m_stack += store(m_stack, static_cast<uint16_t>(m_stack + 2 - m_stack_base));
 			stack = stack_base;
@@ -695,7 +695,7 @@ private:
 	inline const char* i__LINE__(void)
 	{
 		if (m_stack + 2 > m_stack_base + stack_size)
-			m_stream.error("Macro stack overflow");
+			error("Macro stack overflow");
 		auto res = m_stack;
 		auto n = res;
 		*n++ = static_cast<char>(Token::Type::NumberLiteral);
@@ -706,7 +706,7 @@ private:
 		while (l > 0) {
 			s++;
 			if (m_stack + 2 + s > m_stack_base + stack_size)
-				m_stream.error("Macro stack overflow");
+				error("Macro stack overflow");
 			*n++ = static_cast<char>(l % 10) + '0';
 			l /= 10;
 		}
@@ -774,14 +774,14 @@ private:
 	{
 		if (n == nullptr) {
 			if (m_stack + 3 > m_stack_base + stack_size)
-				m_stream.error("Macro stack overflow");
+				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::end;
 			m_stack += store(m_stack, static_cast<uint16_t>(3));
 		} else {
 			token_copy(nc, n);	// copy token before pushing it to stack (might be located on top)
 			n = nc;
 			if (m_stack + 4 + sizeof(nc) > m_stack_base + stack_size)
-				m_stream.error("Macro stack overflow");
+				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::tok;
 			*m_stack++ = 0;	// is TokType::end when already substitued
 			for (uint8_t i = 0; i < sizeof(nc); i++)
@@ -818,7 +818,7 @@ private:
 						v = v * 2 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
 					}
 					if (i == 2)
-						m_stream.error("Expected at least one digit");
+						error("Expected at least one digit");
 					goto polled_digits;
 				} else if (c == 'x') {
 					i++;
@@ -835,7 +835,7 @@ private:
 						v = v * 16 + static_cast<uint32_t>(d);
 					}
 					if (i == 2)
-						m_stream.error("Expected at least one digit");
+						error("Expected at least one digit");
 					goto polled_digits;
 				}
 			}
@@ -848,7 +848,7 @@ private:
 					v = v * 8 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
 				}
 				if (i == 0)
-					m_stream.error("Expected at least one digit");
+					error("Expected at least one digit");
 				goto polled_digits;
 			}
 		}
@@ -861,7 +861,7 @@ private:
 			v = v * 10 + static_cast<uint32_t>(static_cast<uint8_t>(c - '0'));
 		}
 		if (i == 0)
-			m_stream.error("Expected at least one digit");
+			error("Expected at least one digit");
 		polled_digits:;
 		auto left = static_cast<uint8_t>(s - i);
 		Val r{v, true};
@@ -881,7 +881,7 @@ private:
 				return r;
 			}
 		}
-		m_stream.error("Bad end of literal");
+		error("Bad end of literal");
 		__builtin_unreachable();
 	}
 
@@ -994,18 +994,18 @@ private:
 	inline Val gval_s(const char *&n, bool &has_some)
 	{
 		if (!has_some)
-			m_stream.error("Expected token");
+			error("Expected token");
 		if (!next_token_dir_exp(n))
-			m_stream.error("Expected token");
+			error("Expected token");
 		auto t = Token::type(n);
 		if (t == Token::Type::Operator) {
 			auto o = Token::op(n);
 			if (o == Token::Op::LPar) {
 				auto r = gval_b(n, has_some);
 				if (!has_some)
-					m_stream.error("Expected token");
+					error("Expected token");
 				if (!Token::is_op(n, Token::Op::RPar))
-					m_stream.error("Expected )");
+					error("Expected )");
 				return r;
 			} else if (o == Token::Op::Plus) {
 				return gval_s(n, has_some);
@@ -1029,21 +1029,21 @@ private:
 		else if (t == Token::Type::Identifier) {
 			if (streq(n + 1, tdefined)) {
 				if (!next_token_dir_exp_nntexp(n))
-					m_stream.error("Expected token");
+					error("Expected token");
 				bool has_par = false;
 				if (Token::is_op(n, Token::Op::LPar)) {
 					has_par = true;
 					if (!next_token_dir_exp_nntexp(n))
-						m_stream.error("Expected token");
+						error("Expected token");
 				}
 				assert_token_type(n, Token::Type::Identifier);
 				token_nter(nn, n);
 				auto r = Val{m_macros.resolve(nn), true};
 				if (has_par) {
 					if (!next_token_dir_exp_nntexp(n))
-						m_stream.error("Expected )");
+						error("Expected )");
 					if (!Token::is_op(n, Token::Op::RPar))
-						m_stream.error("Expected )");
+						error("Expected )");
 				}
 				return r;
 			} else if (streq(n + 1, ttrue)) {
@@ -1051,7 +1051,7 @@ private:
 			}
 			return Val{0, true};
 		}
-		m_stream.error("Bad token");
+		error("Bad token");
 		__builtin_unreachable();
 	}
 
@@ -1084,13 +1084,13 @@ private:
 			if (o.op == Token::Op::Huh) {
 				payload = gval_b(n, has_some);
 				if (!has_some)
-					m_stream.error("Expected :");
+					error("Expected :");
 				if (!Token::is_op(n, Token::Op::Colon))
-					m_stream.error("Expected :");
+					error("Expected :");
 			}
 			auto b = gval_s(n, has_some);
 			if (!has_some)
-				m_stream.error("Expected token");
+				error("Expected token");
 			if (!next_token_dir_exp(n))
 				has_some = false;
 			while (has_some) {
@@ -1116,7 +1116,7 @@ private:
 		bool has_some = true;
 		auto v = gval_b(n, has_some);
 		if (has_some)
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		return v.v != 0;
 	}
 
@@ -1131,21 +1131,21 @@ private:
 		size_t depth = 0;
 		while (true) {
 			if (n == nullptr)
-				m_stream.error("Expected token");
+				error("Expected token");
 			if (Token::is_op(n, Token::Op::Sharp)) {
 				if (next_token_dir(n)) {
 					const char* (Pp::*dir)(void);
 					{
 						token_nter(nn, n);
 						if (!m_dirs.resolve(nn, dir))
-							m_stream.error("Unknown directive");
+							error("Unknown directive");
 					}
 					if (dir == &Pp::ifdef || dir == &Pp::ifndef || dir == &Pp::dif)
 						depth++;
 					else if (dir == &Pp::elif) {
 						if (depth == 0) {
 							if (ban == FindBlockBan::delse)
-								m_stream.error("#elif after #else");
+								error("#elif after #else");
 							if (ban == FindBlockBan::none) {
 								if (eval(n))
 									return n;
@@ -1155,7 +1155,7 @@ private:
 					} else if (dir == &Pp::delse) {
 						if (depth == 0) {
 							if (ban == FindBlockBan::delse)
-								m_stream.error("#else after #else");
+								error("#else after #else");
 							if (ban == FindBlockBan::none)
 								break;
 						}
@@ -1172,7 +1172,7 @@ private:
 			after_polling:;
 		}
 		if (next_token_dir(n))
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		return n;
 	}
 
@@ -1195,16 +1195,16 @@ private:
 	{
 		const char *n;
 		if (!next_token_dir(n))
-			m_stream.error("Expected token");
+			error("Expected token");
 		if (Token::type(n) != Token::Type::Identifier)
-			m_stream.error("Expected identifier");
+			error("Expected identifier");
 		bool match;
 		{
 			token_nter(nn, n);
 			match = m_macros.resolve(nn) ^ seek_undef;
 		}
 		if (next_token_dir(n))
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		return dif_find_block(match, n);
 	}
 
@@ -1230,7 +1230,7 @@ private:
 	{
 		const char *n;
 		if (next_token_dir(n))
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		return dfind_block(FindBlockBan::delse, n);
 	}
 
@@ -1238,9 +1238,9 @@ private:
 	{
 		const char *n;
 		if (next_token_dir(n))
-			m_stream.error("Expected no further token");
+			error("Expected no further token");
 		if (m_cond_level == 0)
-			m_stream.error("Uncoherent");
+			error("Uncoherent");
 		m_cond_level--;
 		return n;
 	}
