@@ -118,7 +118,8 @@ public:
 			auto c = resolve_u8(str);
 			if (c == nullptr)
 				return false;
-			res = *reinterpret_cast<const T*>(c);
+			for (size_t i = 0; i < sizeof(T); i++)
+				reinterpret_cast<char*>(&res)[i] = c[i];
 			return true;
 		}
 	}
@@ -135,7 +136,9 @@ public:
 			return insert_u16(str, get_payload_size<T>(), &reinterpret_cast<const uint16_t&>(payload));
 		else {
 			uint16_t payload16[get_payload_size<T>()];
-			reinterpret_cast<T&>(*payload16) = payload;
+			for (size_t i = 0; i < sizeof(T) >> 1; i++)
+				payload16[i] = reinterpret_cast<const uint16_t*>(&payload)[i];
+			payload16[sizeof(T) >> 1] = reinterpret_cast<const char*>(&payload)[sizeof(T) - 1];
 			return insert_u16(str, get_payload_size<T>(), reinterpret_cast<const uint16_t*>(payload16));
 		}
 	}
