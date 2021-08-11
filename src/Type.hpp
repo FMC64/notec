@@ -4,19 +4,19 @@ namespace Type {
 
 enum class Prim : char {
 	Void,
-	U8,
-	S8,
-	U16,
-	S16,
-	U32,
-	S32,
-	U64,
-	S64,
+	Auto,
 	FP32,
 	FP64,
+	S8,
+	U8,
+	S16,
+	U16,
+	S32,
+	U32,
+	S64,
+	U64,
 
-	StructInline,	// followed by struct def
-	StructInd,	// followed by 3 bytes of index to struct def
+	Struct,	// followed by 3 bytes of index to struct def
 	Function,	// return type then 1 byte arg count, then arg count types
 
 	Ptr,
@@ -26,15 +26,14 @@ enum class Prim : char {
 	Lref,
 	Rref,
 
-	Auto,
 	Param,	// followed by 1 byte of index to invocation table
 	Invoke	// 3 bytes = template index, then 1 byte = arg count, then arg count types
 	
 };
 
-static inline constexpr char prim_mask = 0x3F;
-static inline constexpr char volatile_flag = 0xC0;
-static inline constexpr char const_flag = 0x80;
+static inline constexpr char const_flag = 0x40;
+static inline constexpr char volatile_flag = 0x80;
+static inline constexpr char prim_mask = 0xFF & ~(const_flag | volatile_flag);
 
 static inline constexpr Prim prim(char type)
 {

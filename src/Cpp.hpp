@@ -1,10 +1,14 @@
 #pragma once
 
 #include "Pp.hpp"
+#include "Type.hpp"
 
 class Cpp
 {
 	Pp m_pp;
+	StrMap::BlockGroup m_blk;
+	uint16_t m_main;
+	uint16_t m_cur;
 
 	inline void error(const char *str)
 	{
@@ -41,11 +45,122 @@ class Cpp
 
 	bool m_is_c_linkage = false;
 
+	struct TypeAttr
+	{
+		static inline constexpr uint8_t Char = 0;
+		static inline constexpr uint8_t Short = 1;
+		static inline constexpr uint8_t Long = 2;
+		static inline constexpr uint8_t Int = 3;
+		static inline constexpr uint8_t Signed = 4;
+		static inline constexpr uint8_t Unsigned = 5;
+		static inline constexpr uint8_t Const = 6;
+		static inline constexpr uint8_t Volatile = 7;
+
+		static inline constexpr uint8_t int_mask = 0x0F;
+		static inline constexpr uint8_t sign_mask = 0x30;
+		static inline constexpr uint8_t cv_mask = 0xC0;
+	};
+
+	inline const char* acc_type_attrs(const char *n, uint8_t &dst)
+	{
+		while (Token::type(n) == Token::Type::Operator) {
+			uint8_t o = static_cast<uint8_t>(Token::op(n)) - static_cast<uint8_t>(Token::Op::Char);
+			if (o >= 8)
+				break;
+			uint8_t b = 1 << o;
+			if (o < TypeAttr::Signed)	// signed - first stackable qualifier
+				if (dst & b)
+					error("Non stackable qualifier");
+			dst |= b;
+			n = next_exp();
+		}
+		return n;
+	}
+
+	inline Type::Prim type_attr_intprim(uint8_t attrs)
+	{
+		if ((attrs & TypeAttr::sign_mask) == TypeAttr::sign_mask)
+			error("Can't have signed and unsigned");
+		if (attrs & TypeAttr::Char) {
+			if ((attrs & TypeAttr::int_mask) != TypeAttr::Char)
+				error("Invalid int comb");
+			return attrs & TypeAttr::Unsigned ? Type::Prim::U8 : Type::Prim::S8;
+		}
+		if (attrs & TypeAttr::Short) {
+			if ((attrs & (TypeAttr::int_mask & ~(TypeAttr::Short | TypeAttr::Int))) != 0)
+				error("Invalid int comb");
+			return attrs & TypeAttr::Unsigned ? Type::Prim::U16 : Type::Prim::S16;
+		}
+		if (attrs & TypeAttr::Long) {
+			if ((attrs & (TypeAttr::int_mask & ~(TypeAttr::Long | TypeAttr::Int))) != 0)
+				error("Invalid int comb");
+			return attrs & TypeAttr::Unsigned ? Type::Prim::U32 : Type::Prim::S32;
+		}
+		return attrs & TypeAttr::Unsigned ? Type::Prim::U32 : Type::Prim::S32;	// must be int
+	}
+
+	inline const char* parse_type_nprim(const char *n, char *nested_id)
+	{
+		if (Token::type(n) == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::Mul) {
+				n = next_exp();
+				uint8_t attrs = 0;
+				n = acc_type_attrs(n, attrs);
+				if (attrs & ~TypeAttr::cv_mask)
+					error("Illegal qualifier: not an integer type");
+				n = parse_type_nprim(n, nested_id);
+				alloc(1);
+				m_buffer[m_size++] = attrs | static_cast<char>(Type::Prim::Ptr);
+			}
+		}
+		return n;
+	}
+
 	// nested_id should be at least 256 bytes long (maximum token size)
 	// if nested_id is nullptr, means nested identified will be discarded
 	// nested_id will be filled with a null-terminated string, of size 0 if not found
 	inline const char* parse_type(const char *n, char *nested_id)
 	{
+		uint8_t attrs = 0;
+		n = acc_type_attrs(n, attrs);
+		char type;
+		if (attrs & TypeAttr::int_mask)	// attrs grabbed int type
+			type = (attrs & TypeAttr::cv_mask) | static_cast<char>(type_attr_intprim(attrs));
+		else {
+			if (attrs & TypeAttr::sign_mask)
+				error("Can't have signed or unsigned without integer type");
+			if (Token::type(n) == Token::Type::Operator) {
+				auto ob = static_cast<uint8_t>(Token::op(n));
+				auto o = ob - static_cast<uint8_t>(Token::Op::Auto);
+				if (o <= 4) {	// from op auto up to bool
+					n = next_exp();
+					n = acc_type_attrs(n, attrs);
+					if (attrs & ~TypeAttr::cv_mask)
+						error("Illegal qualifier: not an integer type");
+					type = (attrs & TypeAttr::cv_mask) | o;
+					goto valid_type;
+				}
+				o = ob - static_cast<uint8_t>(Token::Op::Char8_t);
+				if (o <= 3) {
+					n = next_exp();
+					n = acc_type_attrs(n, attrs);
+					if (attrs & ~TypeAttr::cv_mask)
+						error("Illegal qualifier: not an integer type");
+					if (o == 3)
+						o = 2;
+					type = (attrs & TypeAttr::cv_mask) | (static_cast<uint8_t>(Type::Prim::U8) + 2 * o);
+					goto valid_type;
+				}
+			}
+			error("Bad type");
+			__builtin_unreachable();
+		}
+
+		valid_type:;
+		n = parse_type_nprim(n, nested_id);
+		alloc(1);
+		m_buffer[m_size++] = type;
 		return n;
 	}
 
@@ -105,6 +220,11 @@ class Cpp
 	}
 
 public:
+	Cpp(void)
+	{
+		m_main = m_blk.alloc();
+		m_cur = m_main;
+	}
 	~Cpp(void)
 	{
 		free(m_buffer);
@@ -130,5 +250,10 @@ public:
 		const char *n;
 		while ((n = next()))
 			parse_obj(n);
+	}
+
+	inline const char* get_buffer(void) const
+	{
+		return m_buffer;
 	}
 };
