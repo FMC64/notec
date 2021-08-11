@@ -212,23 +212,39 @@ static inline bool is_op(const char *token, Op op)
 	return type(token) == Type::Operator && Token::op(token) == op;
 }
 
+static inline void fill_nter(char *dst, const char *src)
+{
+	auto size = Token::size(src);
+	dst[size] = 0;
+	auto s = Token::data(src);
+	auto d = dst;
+	for (uint8_t i = 0; i < size; i++)
+		*d++ = *s++;
+}
+
 }
 
 #define token_nter(id, src) char id[Token::size(src) + 1];	\
-	{							\
-		auto size = Token::size(src);			\
-		id[size] = 0;					\
-		auto s = Token::data(src);			\
-		auto d = id;					\
-		for (uint8_t i = 0; i < size; i++)		\
-			*d++ = *s++;				\
-	}
+	Token::fill_nter(id, src);
 
 #define token_copy(id, src) char id[Token::whole_size(src)];	\
 	{							\
 		for (uint8_t i = 0; i < sizeof(id); i++)	\
 			id[i] = src[i];				\
 	}
+
+static inline void cstr_fill_nter(char *dst, const char *src)
+{
+	auto size = static_cast<uint8_t>(*src);
+	dst[size] = 0;
+	auto s = src + 1;
+	auto d = dst;
+	for (uint8_t i = 0; i < size; i++)
+		*d++ = *s++;
+}
+
+#define cstr_nter(id, src) char id[static_cast<size_t>(static_cast<uint8_t>(*src)) + 1];	\
+	cstr_fill_nter(id, src);
 
 // [0] size, [1...size] data
 static inline bool streq(const char *a, const char *b)

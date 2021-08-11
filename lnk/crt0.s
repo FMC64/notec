@@ -1,5 +1,6 @@
         .section .pretext
         .global initialize
+        .global _SetQuitHandler
 initialize:
         sts.l   pr, @-r15
  
@@ -120,7 +121,14 @@ bssdatasize:    .long _bssdatasize
  
 exit_handler:   .long _exit_handler
 main:      .long _main
- 
+
+_SetQuitHandler:
+        mov.l   sc_addr, r2
+        mov.l   1f, r0
+        jmp     @r2
+        nop
+1:      .long 0x494
+
 _Hmem_SetMMU:
         mov.l   sc_addr, r2
         mov.l   1f, r0

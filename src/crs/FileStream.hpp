@@ -98,7 +98,7 @@ public:
 				goto push_file;
 			}
 		if (stack_top != nullptr) {	// don't check pragma once on resume
-			token_nter(fn, filepath - 1);
+			cstr_nter(fn, filepath);
 			if (m_blk.resolve(m_ponce, fn)) {
 				*stack = 0x7E;
 				return true;

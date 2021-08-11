@@ -3,31 +3,32 @@
 namespace Type {
 
 enum class Prim : char {
-	Void = 0,
-	U8 = 1,
-	S8 = 2,
-	U16 = 3,
-	S16 = 4,
-	U32 = 5,
-	S32 = 6,
-	U64 = 7,
-	S64 = 8,
-	FP32 = 9,
-	FP64 = 10,
+	Void,
+	U8,
+	S8,
+	U16,
+	S16,
+	U32,
+	S32,
+	U64,
+	S64,
+	FP32,
+	FP64,
 
-	Struct = 11,	// followed by 3 bytes of index to struct def
-	Function = 12,
+	StructInline,	// followed by struct def
+	StructInd,	// followed by 3 bytes of index to struct def
+	Function,	// return type then 1 byte arg count, then arg count types
 
-	Ptr = 13,
-	Array = 14,
+	Ptr,
+	Array,
 
 	// from now on, quite high level stuff that will be implemented later™
-	Lref = 15,
-	Rref = 16,
+	Lref,
+	Rref,
 
-	Auto = 17,
-	Param = 18,	// followed by 1 byte of index to invocation table
-	Invoke = 19,	// 3 bytes = template index, then 1 byte = arg count, then arg count types
+	Auto,
+	Param,	// followed by 1 byte of index to invocation table
+	Invoke	// 3 bytes = template index, then 1 byte = arg count, then arg count types
 	
 };
 

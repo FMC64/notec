@@ -1,5 +1,6 @@
 #include "cint.hpp"
 #include "Cpp.hpp"
+#include "sref.hpp"
 #include <fxlib.h>
 
 extern "C" {
@@ -11,9 +12,19 @@ void strncmp(void)
 
 }
 
+static sref<Cpp> cpp_ref;
+
+static void on_terminate(void)
+{
+	cpp_ref.destroy();
+}
+
 int main(void)
 {
+	SetQuitHandler(on_terminate);
+
 	Cpp c;
+	auto cc = cpp_ref.capture(c);
 	catch (c.err_src()) {
 		auto err = c.err_src().get_error();
 		locate(1, 1);

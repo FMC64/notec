@@ -41,6 +41,27 @@ class Cpp
 
 	bool m_is_c_linkage = false;
 
+	// nested_id should be at least 256 bytes long (maximum token size)
+	// if nested_id is nullptr, means nested identified will be discarded
+	// nested_id will be filled with a null-terminated string, of size 0 if not found
+	inline const char* parse_type(const char *n, char *nested_id)
+	{
+		return n;
+	}
+
+	// id should be at least 256 bytes long (maximum token size)
+	inline const char* parse_type_id(const char *n, char *id)
+	{
+		n = parse_type(n, id);
+		if (*id == 0) {
+			if (Token::type(n) != Token::Type::Identifier)
+				error("Expected identifier");
+			Token::fill_nter(id, n);
+			n = next_exp();
+		}
+		return n;
+	}
+
 	// if is_c is false, c++
 	inline void extern_linkage(bool is_c)
 	{
@@ -62,19 +83,33 @@ class Cpp
 
 	inline void parse_obj(const char *n)
 	{
-		if (Token::is_op(n, Token::Op::Extern)) {
-			n = next_exp();
-			if (Token::type(n) == Token::Type::StringLiteral) {
-				if (streq(n + 1, make_cstr("C++")))
-					return extern_linkage(false);
-				if (streq(n + 1, make_cstr("C")))
-					return extern_linkage(true);
-				error("Unknown language linkage");
+		if (Token::type(n) == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::Extern) {
+				n = next_exp();
+				if (Token::type(n) == Token::Type::StringLiteral) {
+					if (streq(n + 1, make_cstr("C++")))
+						return extern_linkage(false);
+					if (streq(n + 1, make_cstr("C")))
+						return extern_linkage(true);
+					error("Unknown language linkage");
+				}
+			} else if (o == Token::Op::Typedef) {
+				n = next_exp();
+				char id[256];
+				n = parse_type_id(n, id);
+				if (!Token::is_op(n, Token::Op::Semicolon))
+					error("Expected ';'");
 			}
 		}
 	}
 
 public:
+	~Cpp(void)
+	{
+		free(m_buffer);
+	}
+
 	inline auto& err_src(void)
 	{
 		return m_pp.get_tstream();
