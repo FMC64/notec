@@ -47,14 +47,14 @@ class Cpp
 
 	struct TypeAttr
 	{
-		static inline constexpr uint8_t Char = 0;
-		static inline constexpr uint8_t Short = 1;
-		static inline constexpr uint8_t Long = 2;
-		static inline constexpr uint8_t Int = 3;
-		static inline constexpr uint8_t Signed = 4;
-		static inline constexpr uint8_t Unsigned = 5;
-		static inline constexpr uint8_t Const = 6;
-		static inline constexpr uint8_t Volatile = 7;
+		static inline constexpr uint8_t Char = 1 << 0;
+		static inline constexpr uint8_t Short = 1 << 1;
+		static inline constexpr uint8_t Long = 1 << 2;
+		static inline constexpr uint8_t Int = 1 << 3;
+		static inline constexpr uint8_t Signed = 1 << 4;
+		static inline constexpr uint8_t Unsigned = 1 << 5;
+		static inline constexpr uint8_t Const = 1 << 6;
+		static inline constexpr uint8_t Volatile = 1 << 7;
 
 		static inline constexpr uint8_t int_mask = 0x0F;
 		static inline constexpr uint8_t sign_mask = 0x30;
@@ -101,18 +101,31 @@ class Cpp
 
 	inline const char* parse_type_nprim(const char *n, char *nested_id)
 	{
-		if (Token::type(n) == Token::Type::Operator) {
-			auto o = Token::op(n);
-			if (o == Token::Op::Mul) {
+		auto single_op = [&](Type::Prim p, bool must_be_last){
 				n = next_exp();
 				uint8_t attrs = 0;
 				n = acc_type_attrs(n, attrs);
-				if (attrs & ~TypeAttr::cv_mask)
+				if (must_be_last) {
+					if (attrs)
+						error("Can't have more qualifiers");
+				} else if (attrs & ~TypeAttr::cv_mask)
 					error("Illegal qualifier: not an integer type");
+				auto had = n;
 				n = parse_type_nprim(n, nested_id);
+				if (must_be_last)
+					if (had != n)
+						error("Can't have more qualifiers");
 				alloc(1);
-				m_buffer[m_size++] = attrs | static_cast<char>(Type::Prim::Ptr);
-			}
+				m_buffer[m_size++] = attrs | static_cast<char>(p);
+		};
+		if (Token::type(n) == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::Mul)
+				single_op(Type::Prim::Ptr, false);
+			else if (o == Token::Op::BitAnd)
+				single_op(Type::Prim::Lref, true);
+			else if (o == Token::Op::And)
+				single_op(Type::Prim::Rref, true);
 		}
 		return n;
 	}

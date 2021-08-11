@@ -26,3 +26,13 @@ test_case(cpp_0)
 	test_assert(b[1] == (Type::const_flag | Type::volatile_flag | static_cast<char>(Type::Prim::Ptr)));
 	test_assert(b[2] == (Type::const_flag | static_cast<char>(Type::Prim::S32)));
 }
+
+test_case(cpp_1)
+{
+	auto c = init_file("typedef const char *&n;");
+	c.run();
+	auto b = c.get_buffer();
+	test_assert(b[0] == static_cast<char>(Type::Prim::Lref));
+	test_assert(b[1] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[2] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+}
