@@ -130,10 +130,12 @@ class Cpp
 		return n;
 	}
 
+	uint32_t m_building_type_base;
+
 	// nested_id should be at least 256 bytes long (maximum token size)
 	// if nested_id is nullptr, means nested identified will be discarded
 	// nested_id will be filled with a null-terminated string, of size 0 if not found
-	inline const char* parse_type(const char *n, char *nested_id)
+	inline const char* parse_type_base(const char *n, char *nested_id)
 	{
 		uint8_t attrs = 0;
 		n = acc_type_attrs(n, attrs);
@@ -177,10 +179,18 @@ class Cpp
 		return n;
 	}
 
-	// id should be at least 256 bytes long (maximum token size)
-	inline const char* parse_type_id(const char *n, char *id)
+	inline const char* parse_type(const char *n, char *nested_id, uint32_t &ndx)
 	{
-		n = parse_type(n, id);
+		m_building_type_base = m_size;
+		auto res = parse_type_base(n, nested_id);
+		ndx = m_building_type_base;
+		return res;
+	}
+
+	// id should be at least 256 bytes long (maximum token size)
+	inline const char* parse_type_id(const char *n, char *id, uint32_t &ndx)
+	{
+		n = parse_type(n, id, ndx);
 		if (*id == 0) {
 			if (Token::type(n) != Token::Type::Identifier)
 				error("Expected identifier");
@@ -225,7 +235,10 @@ class Cpp
 			} else if (o == Token::Op::Typedef) {
 				n = next_exp();
 				char id[256];
-				n = parse_type_id(n, id);
+				uint32_t t;
+				n = parse_type_id(n, id, t);
+				if (!m_blk.insert(m_cur, id, t))
+					error("Primitive redeclaration");
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");
 			}
