@@ -8,6 +8,7 @@ class Cpp
 	Pp m_pp;
 	StrMap::BlockGroup m_blk;
 	uint32_t m_cur;
+	uint32_t m_cur_alt = 0;
 
 	inline void error(const char *str)
 	{
@@ -103,11 +104,11 @@ class Cpp
 	}
 
 	// name is null terminated
-	inline bool cont_resolve_mut_rev_cur_fallback(uint32_t cont, const char *name, uint16_t *&res)
+	inline bool cont_resolve_mut_rev(const char *name, uint16_t *&res)
 	{
-		if (cont_resolve_mut_rev(cont, name, res))
+		if (cont_resolve_mut_rev(m_cur, name, res))
 			return true;
-		else if (cont_resolve_mut_rev(m_cur, name, res))
+		else if (m_cur_alt != 0 && cont_resolve_mut_rev(m_cur_alt, name, res))
 			return true;
 		else
 			return false;
@@ -121,30 +122,26 @@ class Cpp
 	}
 
 	// id should be at least 256 bytes long
-	// id size is 0 if res
-	// res is nullptr if nothing
-	inline const char* id_or_res(const char *n, uint32_t climb_first, char *id, uint16_t *&res)
+	// res is nullptr if id
+	// id size is 0 if nothing
+	inline const char* res_or_id(const char *n, uint16_t *&res, char *id)
 	{
 		uint32_t resc;
 		if (Token::type(n) == Token::Type::Identifier) {
 			Token::fill_nter(id, n);
-			if (cont_resolve_mut_rev_cur_fallback(climb_first, id, res))
+			if (cont_resolve_mut_rev(id, res)) {
 				resc = load_u16<uint32_t>(res);
-			else
 				*id = 0;
+			}
 			n = next_exp();
 			if (!Token::is_op(n, Token::Op::Scope))
 				return n;
-			if (*id == 0) {
-				res = nullptr;
-				return n;
-			}
 			n = next_exp();
 		} else if (Token::is_op(n, Token::Op::Scope)) {
 			res = nullptr;	// can't mutate main namespace address
-			resc = 0;
+			resc = 0;	// start from main namespace
 			n = next_exp();
-		} else {
+		} else {	// no clue what's going on
 			*id = 0;
 			res = nullptr;
 			return n;
@@ -282,10 +279,18 @@ class Cpp
 					n = next_exp();
 					char id[256];
 					uint16_t *res;
-					n = id_or_res(n, 0, id, res);
-					if (Token::is_op(n, Token::Op::LBra)) {
-					} else {
+					n = res_or_id(n, res, id);
+					if (Token::type(n) == Token::Type::Operator) {
+						auto o = Token::op(n);
+						if (o == Token::Op::LBra) {	// define
+							goto struct_parsed;
+						} else if (o == Token::Op::Semicolon) {	// fwd
+							goto struct_parsed;
+						}
 					}
+					// reference
+
+					struct_parsed:;
 				}
 				o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Char8_t);
 				if (o <= 3) {
