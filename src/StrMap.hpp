@@ -91,6 +91,11 @@ class BlockGroup
 	}
 
 public:
+	inline uint16_t* resolve_mut_u16(uint16_t root, const char *str)
+	{
+		return reinterpret_cast<uint16_t*>(const_cast<char*>(resolve_u8(root, str)));
+	}
+
 	inline BlockGroup(void)
 	{
 	}

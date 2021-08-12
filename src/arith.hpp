@@ -33,6 +33,27 @@ T load(const char *src)
 	return res;
 }
 
+template <typename T>
+size_t store_u16(uint16_t *dst, const T &src)
+{
+	static_assert(sizeof(T) % 2 == 0, "T size must be multiple of two");
+	auto csrc = reinterpret_cast<const uint16_t*>(&src);
+	for (size_t i = 0; i < sizeof(T) / 2; i++)
+		*dst++ = *csrc++;
+	return sizeof(T);
+}
+
+template <typename T>
+T load_u16(const uint16_t *src)
+{
+	static_assert(sizeof(T) % 2 == 0, "T size must be multiple of two");
+	T res;
+	auto cres = reinterpret_cast<uint16_t*>(&res);
+	for (size_t i = 0; i < sizeof(T) / 2; i++)
+		*cres++ = *src++;
+	return res;
+}
+
 template <size_t Size, typename T>
 size_t store_part(char *dst, const T &src)
 {

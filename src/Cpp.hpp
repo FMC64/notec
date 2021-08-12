@@ -7,8 +7,7 @@ class Cpp
 {
 	Pp m_pp;
 	StrMap::BlockGroup m_blk;
-	uint16_t m_main;
-	uint16_t m_cur;
+	uint32_t m_cur;
 
 	inline void error(const char *str)
 	{
@@ -44,6 +43,129 @@ class Cpp
 	}
 
 	bool m_is_c_linkage = false;
+
+	enum class ContType : char {
+		// 1 - type
+		// 2 - map root
+		// 3 - parent
+		Namespace,
+
+		// 1 - type
+		// 2 - map root
+		// 3 - parent
+		// 1 - arg count
+		// arg count args
+		// 1 - non static member count
+		// non static members indexes, three bytes each
+		Struct
+	};
+
+	inline ContType cont_type(uint32_t cont) const
+	{
+		return static_cast<ContType>(m_buffer[cont]);
+	}
+
+	inline uint16_t cont_map(uint32_t cont) const
+	{
+		return load<uint16_t>(m_buffer + cont + 1);
+	}
+
+	inline uint32_t cont_parent(uint32_t cont) const
+	{
+		return load_part<3, uint32_t>(m_buffer + cont + 3);
+	}
+
+	// name is null terminated
+	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res)
+	{
+		auto m = cont_map(cont);
+		return m_blk.resolve(m, name, res);
+	}
+
+	// name is null terminated
+	inline bool cont_resolve_mut(uint32_t cont, const char *name, uint16_t *&res)
+	{
+		auto m = cont_map(cont);
+		res = m_blk.resolve_mut_u16(m, name);
+		return res != nullptr;
+	}
+
+	// name is null terminated
+	inline bool cont_resolve_mut_rev(uint32_t cont, const char *name, uint16_t *&res)
+	{
+		while (true) {
+			if (cont_resolve_mut(cont, name, res))
+				return true;
+			cont = cont_parent(cont);
+			if (cont == 0)
+				return false;
+		}
+	}
+
+	// name is null terminated
+	inline bool cont_resolve_mut_rev_cur_fallback(uint32_t cont, const char *name, uint16_t *&res)
+	{
+		if (cont_resolve_mut_rev(cont, name, res))
+			return true;
+		else if (cont_resolve_mut_rev(m_cur, name, res))
+			return true;
+		else
+			return false;
+	}
+
+	// name is null terminated
+	inline void cont_insert(uint32_t cont, const char *name, uint32_t payload)
+	{
+		if (!m_blk.insert(cont_map(cont), name, payload))
+			error("Primitive redeclaration");
+	}
+
+	// id should be at least 256 bytes long
+	// id size is 0 if res
+	// res is nullptr if nothing
+	inline const char* id_or_res(const char *n, uint32_t climb_first, char *id, uint16_t *&res)
+	{
+		uint32_t resc;
+		if (Token::type(n) == Token::Type::Identifier) {
+			Token::fill_nter(id, n);
+			if (cont_resolve_mut_rev_cur_fallback(climb_first, id, res))
+				resc = load_u16<uint32_t>(res);
+			else
+				*id = 0;
+			n = next_exp();
+			if (!Token::is_op(n, Token::Op::Scope))
+				return n;
+			if (*id == 0) {
+				res = nullptr;
+				return n;
+			}
+			n = next_exp();
+		} else if (Token::is_op(n, Token::Op::Scope)) {
+			res = nullptr;	// can't mutate main namespace address
+			resc = 0;
+			n = next_exp();
+		} else {
+			*id = 0;
+			res = nullptr;
+			return n;
+		}
+
+		while (true) {
+			// guarrantee next must be identifier
+			if (Token::type(n) != Token::Type::Identifier)
+				error("Must have identifier");
+			Token::fill_nter(id, n);
+			if (!cont_resolve_mut(resc, id, res))
+				error("No such member");
+			resc = load_u16<uint32_t>(res);
+			n = next_exp();
+			if (!Token::is_op(n, Token::Op::Scope))
+				break;
+			n = next_exp();
+		}
+		*id = 0;
+		return n;
+	}
 
 	struct TypeAttr
 	{
@@ -146,8 +268,8 @@ class Cpp
 			if (attrs & TypeAttr::sign_mask)
 				error("Can't have signed or unsigned without integer type");
 			if (Token::type(n) == Token::Type::Operator) {
-				auto ob = static_cast<uint8_t>(Token::op(n));
-				auto o = ob - static_cast<uint8_t>(Token::Op::Auto);
+				auto ob = Token::op(n);
+				auto o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Auto);
 				if (o <= 4) {	// from op auto up to bool
 					n = next_exp();
 					n = acc_type_attrs(n, attrs);
@@ -156,7 +278,16 @@ class Cpp
 					type = (attrs & TypeAttr::cv_mask) | o;
 					goto valid_type;
 				}
-				o = ob - static_cast<uint8_t>(Token::Op::Char8_t);
+				if (ob == Token::Op::Struct || ob == Token::Op::Class) {
+					n = next_exp();
+					char id[256];
+					uint16_t *res;
+					n = id_or_res(n, 0, id, res);
+					if (Token::is_op(n, Token::Op::LBra)) {
+					} else {
+					}
+				}
+				o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Char8_t);
 				if (o <= 3) {
 					n = next_exp();
 					n = acc_type_attrs(n, attrs);
@@ -173,6 +304,7 @@ class Cpp
 		}
 
 		valid_type:;
+		*nested_id = 0;
 		n = parse_type_nprim(n, nested_id);
 		alloc(1);
 		m_buffer[m_size++] = type;
@@ -237,8 +369,7 @@ class Cpp
 				char id[256];
 				uint32_t t;
 				n = parse_type_id(n, id, t);
-				if (!m_blk.insert(m_cur, id, t))
-					error("Primitive redeclaration");
+				cont_insert(m_cur, id, t);
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");
 			}
@@ -248,8 +379,12 @@ class Cpp
 public:
 	Cpp(void)
 	{
-		m_main = m_blk.alloc();
-		m_cur = m_main;
+		m_cur = m_size;
+		auto map = m_blk.alloc();
+		alloc(6);
+		m_buffer[m_size++] = static_cast<char>(ContType::Namespace);
+		m_size += store(m_buffer + m_size, map);
+		m_size += store_part<3>(m_buffer + m_size, 0);
 	}
 	~Cpp(void)
 	{

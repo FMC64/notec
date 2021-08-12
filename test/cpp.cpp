@@ -17,14 +17,16 @@ static Cpp init_file(const char *src)
 	return res;
 }
 
+static inline constexpr size_t base = 6;
+
 test_case(cpp_0)
 {
 	auto c = init_file("typedef const int * const volatile * volatile ppi32;");
 	c.run();
 	auto b = c.get_buffer();
-	test_assert(b[0] == (Type::volatile_flag | static_cast<char>(Type::Prim::Ptr)));
-	test_assert(b[1] == (Type::const_flag | Type::volatile_flag | static_cast<char>(Type::Prim::Ptr)));
-	test_assert(b[2] == (Type::const_flag | static_cast<char>(Type::Prim::S32)));
+	test_assert(b[base + 0] == (Type::volatile_flag | static_cast<char>(Type::Prim::Ptr)));
+	test_assert(b[base + 1] == (Type::const_flag | Type::volatile_flag | static_cast<char>(Type::Prim::Ptr)));
+	test_assert(b[base + 2] == (Type::const_flag | static_cast<char>(Type::Prim::S32)));
 }
 
 test_case(cpp_1)
@@ -32,7 +34,7 @@ test_case(cpp_1)
 	auto c = init_file("typedef const char *&n;");
 	c.run();
 	auto b = c.get_buffer();
-	test_assert(b[0] == static_cast<char>(Type::Prim::Lref));
-	test_assert(b[1] == static_cast<char>(Type::Prim::Ptr));
-	test_assert(b[2] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+	test_assert(b[base + 0] == static_cast<char>(Type::Prim::Lref));
+	test_assert(b[base + 1] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[base + 2] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
 }
