@@ -99,3 +99,46 @@ typedef struct{} b;
 	test_assert(b[base + 22] == static_cast<char>(Type::Prim::Struct));
 	test_assert(load_part<3, uint32_t>(b + base + 23) == base + 16);
 }
+
+test_case(cpp_5)
+{
+	auto c = init_file(
+R"raw(
+
+struct S {
+	int a;
+private:
+	static inline float b;
+
+protected:
+	class Ssub {
+	protected:
+		char c;
+	};
+};
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	test_assert(b[base + 0] == static_cast<char>(Cpp::ContType::Struct));
+	test_assert(load<uint16_t>(b + base + 1));
+	test_assert(load_part<3, uint32_t>(b + base + 3) == 0);
+
+	test_assert(b[base + 6] == static_cast<char>(Type::Visib::Public));
+	test_assert(b[base + 7] == 0);
+	test_assert(b[base + 8] == static_cast<char>(Type::Prim::S32));
+
+	test_assert(b[base + 9] == static_cast<char>(Type::Visib::Private));
+	test_assert(b[base + 10] == (Type::inline_flag | static_cast<char>(Type::Storage::Static)));
+	test_assert(b[base + 11] == static_cast<char>(Type::Prim::FP32));
+
+	test_assert(b[base + 12] == static_cast<char>(Type::Visib::Protected));
+	test_assert(b[base + 13] == static_cast<char>(Cpp::ContType::Struct));
+	test_assert(load<uint16_t>(b + base + 14));
+	test_assert(load_part<3, uint32_t>(b + base + 16) == base);
+
+	test_assert(b[base + 19] == static_cast<char>(Type::Visib::Protected));
+	test_assert(b[base + 20] == 0);
+	test_assert(b[base + 21] == static_cast<char>(Type::Prim::S8));
+}

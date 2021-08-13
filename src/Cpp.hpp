@@ -164,6 +164,29 @@ private:
 		return n;
 	}
 
+	const char* acc_storage(const char *n, uint8_t &dst)
+	{
+		while (Token::type(n) == Token::Type::Operator) {
+			auto o = Token::op(n);
+			uint8_t ob = static_cast<uint8_t>(o) - static_cast<uint8_t>(Token::Op::Static);
+			if (ob <= 1) {
+				if (Type::storage(dst) != Type::Storage::Default)
+					error("More than one storage specifier");
+				dst |= ob + 1;
+				goto polled;
+			}
+			ob = static_cast<uint8_t>(o) - static_cast<uint8_t>(Token::Op::Inline);
+			if (ob <= 5) {
+				dst |= 1 << (2 + ob);
+				goto polled;
+			}
+			break;
+			polled:;
+			n = next_exp();
+		}
+		return n;
+	}
+
 	struct TypeAttr
 	{
 		static inline constexpr uint8_t Char = 1 << 0;
@@ -266,7 +289,7 @@ private:
 			if (o == Token::Op::LBra) {	// define
 				m_size = m_building_type_base;	// start from building type base
 				n = next_exp();
-				auto visib = kind == Token::Op::Class ? Type::Visib::Private : Type::Visib::Private;
+				auto visib = kind == Token::Op::Class ? Type::Visib::Private : Type::Visib::Public;
 				auto last_cur = m_cur;
 				auto last_alt = m_cur_alt;
 				if (res) {	// define struct in existing
@@ -304,6 +327,8 @@ private:
 							continue;
 						}
 					}
+					alloc(1);
+					m_buffer[m_size++] = static_cast<char>(visib);
 					parse_obj(n);
 					n = next_exp();
 				};
@@ -359,7 +384,7 @@ private:
 				error("Can't have signed or unsigned without integer type");
 			if (Token::type(n) == Token::Type::Operator) {
 				auto ob = Token::op(n);
-				auto o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Auto);
+				auto o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Void);
 				if (o <= 4) {	// from op auto up to bool
 					n = next_exp();
 					n = acc_type_attrs(n, attrs);
@@ -406,18 +431,20 @@ private:
 		return n;
 	}
 
-	inline const char* parse_type(const char *n, char *nested_id, uint32_t &ndx)
+	inline const char* parse_type(const char *n, char *nested_id, uint32_t &ndx, uint32_t base_off = 0)
 	{
-		m_building_type_base = m_size;
+		auto old_base = m_building_type_base;
+		m_building_type_base = m_size - base_off;
 		auto res = parse_type_base(n, nested_id);
 		ndx = m_building_type_base;
+		m_building_type_base = old_base;
 		return res;
 	}
 
 	// id should be at least 256 bytes long (maximum token size)
-	inline const char* parse_type_id(const char *n, char *id, uint32_t &ndx)
+	inline const char* parse_type_id(const char *n, char *id, uint32_t &ndx, uint32_t base_off = 0)
 	{
-		n = parse_type(n, id, ndx);
+		n = parse_type(n, id, ndx, base_off);
 		if (*id == 0) {
 			if (Token::type(n) != Token::Type::Identifier)
 				error("Expected identifier");
@@ -446,7 +473,7 @@ private:
 		m_is_c_linkage = last;
 	}
 
-	inline void parse_obj(const char *n)
+	inline void parse_obj(const char *n, uint32_t base_off = 0)
 	{
 		if (Token::type(n) == Token::Type::Operator) {
 			auto o = Token::op(n);
@@ -463,7 +490,7 @@ private:
 				n = next_exp();
 				char id[256];
 				uint32_t t;
-				n = parse_type_id(n, id, t);
+				n = parse_type_id(n, id, t, base_off);
 				cont_insert(m_cur, id, t);
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");
@@ -497,6 +524,31 @@ private:
 				m_cur = last_cur;
 				return;
 			}
+		}
+		{
+			uint8_t sto = 0;
+			n = acc_storage(n, sto);
+			alloc(1);
+			m_buffer[m_size++] = sto;
+			uint32_t t;
+			char id[256];
+			n = parse_type(n, id, t, base_off + 1);
+			if (*id == 0) {
+				if (Token::is_op(n, Token::Op::Semicolon) && Type::prim(m_buffer[t + 1]) == Type::Prim::Struct) {
+					if ((m_buffer[t + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
+						error("Can't qualify struct declaration");
+					m_size = t;	// remove in-building type
+					return;
+				}
+				if (Token::type(n) != Token::Type::Identifier)
+					error("Expected identifier");
+				Token::fill_nter(id, n);
+				n = next_exp();
+			}
+			if (!Token::is_op(n, Token::Op::Semicolon))
+				error("Expected ';'");
+			cont_insert(m_cur, id, t);
+			return;
 		}
 		error("Unknown primitive");
 	}

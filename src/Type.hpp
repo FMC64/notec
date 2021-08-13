@@ -56,4 +56,23 @@ enum class Visib : char {
 	Public
 };
 
+enum class Storage : char {
+	Default,
+	Static,
+	Extern
+};
+
+static inline constexpr uint8_t inline_flag = 0x04;
+static inline constexpr uint8_t constexpr_flag = 0x08;
+static inline constexpr uint8_t consteval_flag = 0x10;
+static inline constexpr uint8_t constinit_flag = 0x20;
+static inline constexpr uint8_t thread_local_flag = 0x40;
+static inline constexpr uint8_t mutable_flag = 0x80;
+static inline constexpr uint8_t storage_mask = 0x03;
+
+static inline constexpr Storage storage(char type)
+{
+	return static_cast<Storage>(static_cast<uint8_t>(type & storage_mask));
+}
+
 }
