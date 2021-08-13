@@ -142,3 +142,22 @@ protected:
 	test_assert(b[base + 20] == 0);
 	test_assert(b[base + 21] == static_cast<char>(Type::Prim::S8));
 }
+
+test_case(cpp_6)
+{
+	auto c = init_file(
+R"raw(
+
+extern "C" {
+
+extern int var;
+
+}
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	test_assert(b[base] == static_cast<char>(Type::Storage::Extern));
+	test_assert(b[base + 1] == static_cast<char>(Type::Prim::S32));
+}

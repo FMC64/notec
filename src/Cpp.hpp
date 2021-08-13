@@ -473,6 +473,31 @@ private:
 		m_is_c_linkage = last;
 	}
 
+	inline void parse_memb(const char *n, uint32_t base_off, uint8_t sto = 0)
+	{
+		n = acc_storage(n, sto);
+		alloc(1);
+		m_buffer[m_size++] = sto;
+		uint32_t t;
+		char id[256];
+		n = parse_type(n, id, t, base_off + 1);
+		if (*id == 0) {
+			if (Token::is_op(n, Token::Op::Semicolon) && Type::prim(m_buffer[t + 1]) == Type::Prim::Struct) {
+				if ((m_buffer[t + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
+					error("Can't qualify struct declaration");
+				m_size = t;	// remove in-building type
+				return;
+			}
+			if (Token::type(n) != Token::Type::Identifier)
+				error("Expected identifier");
+			Token::fill_nter(id, n);
+			n = next_exp();
+		}
+		if (!Token::is_op(n, Token::Op::Semicolon))
+			error("Expected ';'");
+		cont_insert(m_cur, id, t);
+	}
+
 	inline void parse_obj(const char *n, uint32_t base_off = 0)
 	{
 		if (Token::type(n) == Token::Type::Operator) {
@@ -485,7 +510,8 @@ private:
 					if (streq(n + 1, make_cstr("C")))
 						return extern_linkage(true);
 					error("Unknown language linkage");
-				}
+				} else
+					return parse_memb(n, base_off, static_cast<char>(Type::Storage::Extern));
 			} else if (o == Token::Op::Typedef) {
 				n = next_exp();
 				char id[256];
@@ -525,32 +551,7 @@ private:
 				return;
 			}
 		}
-		{
-			uint8_t sto = 0;
-			n = acc_storage(n, sto);
-			alloc(1);
-			m_buffer[m_size++] = sto;
-			uint32_t t;
-			char id[256];
-			n = parse_type(n, id, t, base_off + 1);
-			if (*id == 0) {
-				if (Token::is_op(n, Token::Op::Semicolon) && Type::prim(m_buffer[t + 1]) == Type::Prim::Struct) {
-					if ((m_buffer[t + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
-						error("Can't qualify struct declaration");
-					m_size = t;	// remove in-building type
-					return;
-				}
-				if (Token::type(n) != Token::Type::Identifier)
-					error("Expected identifier");
-				Token::fill_nter(id, n);
-				n = next_exp();
-			}
-			if (!Token::is_op(n, Token::Op::Semicolon))
-				error("Expected ';'");
-			cont_insert(m_cur, id, t);
-			return;
-		}
-		error("Unknown primitive");
+		parse_memb(n, base_off);
 	}
 
 public:
