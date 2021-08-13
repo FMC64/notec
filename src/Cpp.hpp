@@ -272,17 +272,20 @@ private:
 				if (res) {	// define struct in existing
 					if (cont_map(res))
 						error("Multiple definition");
-					m_cur_alt = m_cur;	// set current context as fallback for resolution
 					m_cur = res;	// original definition is now current context
+					struct_ndx = m_cur;
+					m_cur_alt = m_cur;	// set current context as fallback for resolution
 					store(m_buffer + res + 1, m_blk.alloc());
 				} else {	// create struct entry
 					if (*id)	// otherwise anonymous struct
 						cont_insert(m_cur, id, m_size);
 					m_cur = m_size;
+					struct_ndx = m_cur;
+					m_cur_alt = 0;
 					alloc(6);
 					m_buffer[m_size++] = static_cast<char>(ContType::Struct);
 					m_size += store(m_buffer + m_size, m_blk.alloc());
-					m_size += store_part<3>(m_buffer + m_size, m_cur);	// reference parent
+					m_size += store_part<3>(m_buffer + m_size, last_cur);	// reference parent
 				}
 				while (true) {
 					if (Token::type(n) == Token::Type::Operator) {
@@ -298,9 +301,11 @@ private:
 							if (!Token::is_op(n, Token::Op::Colon))
 								error("Expected ':'");
 							n = next_exp();
+							continue;
 						}
 					}
 					parse_obj(n);
+					n = next_exp();
 				};
 				m_cur_alt = last_alt;
 				m_cur = last_cur;
@@ -345,7 +350,7 @@ private:
 		uint8_t attrs = 0;
 		n = acc_type_attrs(n, attrs);
 		bool is_struct = false;
-		uint32_t struct_ndx = false;
+		uint32_t struct_ndx;
 		char type;
 		if (attrs & TypeAttr::int_mask)	// attrs grabbed int type
 			type = (attrs & TypeAttr::cv_mask) | static_cast<char>(type_attr_intprim(attrs));
@@ -462,8 +467,38 @@ private:
 				cont_insert(m_cur, id, t);
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");
+				return;
+			} else if (o == Token::Op::Namespace) {
+				n = next_exp();
+				if (Token::type(n) != Token::Type::Identifier)
+					error("Expected identifier");
+				token_nter(nn, n);
+				cont_insert(m_cur, n, m_size);
+				auto last_cur = m_cur;
+				auto last_alt = m_cur_alt;
+				m_cur = m_size;
+				m_cur_alt = 0;
+				auto map = m_blk.alloc();
+				alloc(6);
+				m_buffer[m_size++] = static_cast<char>(ContType::Namespace);
+				m_size += store(m_buffer + m_size, map);
+				m_size += store_part<3>(m_buffer + m_size, 0);
+				n = next_exp();
+				if (!Token::is_op(n, Token::Op::LBra))
+					error("Expected '{'");
+				n = next_exp();
+				while (true) {
+					if (Token::is_op(n, Token::Op::RBra))
+						break;
+					parse_obj(n);
+					n = next_exp();
+				}
+				m_cur_alt = last_alt;
+				m_cur = last_cur;
+				return;
 			}
 		}
+		error("Unknown primitive");
 	}
 
 public:
