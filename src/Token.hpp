@@ -138,13 +138,22 @@ enum class Op : uint8_t {
 	Volatile,
 
 
+	Class,
+	Struct,
+	Union,
+
+
+	Private,
+	Protected,
+	Public,
+
+
 	Alignas,
 	Alignof,
 	Asm,
 	Break,
 	Case,
 	Catch,
-	Class,
 	Concept,
 	Consteval,
 	Constexpr,
@@ -177,9 +186,6 @@ enum class Op : uint8_t {
 	Noexcept,
 	Nullptr,
 	Operator,
-	Private,
-	Protected,
-	Public,
 
 	Register,
 	ReinterpretCast,
@@ -189,7 +195,6 @@ enum class Op : uint8_t {
 	Static,
 	StaticAssert,
 	StaticCast,
-	Struct,
 	Switch,
 	Template,
 	This,
@@ -200,7 +205,6 @@ enum class Op : uint8_t {
 	Typedef,
 	Typeid,
 	Typename,
-	Union,
 	Using,
 	Virtual,
 	While

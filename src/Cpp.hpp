@@ -45,6 +45,7 @@ class Cpp
 
 	bool m_is_c_linkage = false;
 
+public:
 	enum class ContType : char {
 		// 1 - type
 		// 2 - map root
@@ -54,6 +55,7 @@ class Cpp
 		// 1 - type
 		// 2 - map root
 		// 3 - parent
+		// BELOW NOT USED FOR NOW
 		// 1 - arg count
 		// arg count args
 		// 1 - non static member count
@@ -61,6 +63,7 @@ class Cpp
 		Struct
 	};
 
+private:
 	inline ContType cont_type(uint32_t cont) const
 	{
 		return static_cast<ContType>(m_buffer[cont]);
@@ -84,18 +87,18 @@ class Cpp
 	}
 
 	// name is null terminated
-	inline bool cont_resolve_mut(uint32_t cont, const char *name, uint16_t *&res)
+	/*inline bool cont_resolve_mut(uint32_t cont, const char *name, uint16_t *&res)
 	{
 		auto m = cont_map(cont);
 		res = m_blk.resolve_mut_u16(m, name);
 		return res != nullptr;
-	}
+	}*/
 
 	// name is null terminated
-	inline bool cont_resolve_mut_rev(uint32_t cont, const char *name, uint16_t *&res)
+	inline bool cont_resolve_rev(uint32_t cont, const char *name, uint32_t &res)
 	{
 		while (true) {
-			if (cont_resolve_mut(cont, name, res))
+			if (cont_resolve(cont, name, res))
 				return true;
 			cont = cont_parent(cont);
 			if (cont == 0)
@@ -104,11 +107,11 @@ class Cpp
 	}
 
 	// name is null terminated
-	inline bool cont_resolve_mut_rev(const char *name, uint16_t *&res)
+	inline bool cont_resolve_rev(const char *name, uint32_t &res)
 	{
-		if (cont_resolve_mut_rev(m_cur, name, res))
+		if (cont_resolve_rev(m_cur, name, res))
 			return true;
-		else if (m_cur_alt != 0 && cont_resolve_mut_rev(m_cur_alt, name, res))
+		else if (m_cur_alt != 0 && cont_resolve_rev(m_cur_alt, name, res))
 			return true;
 		else
 			return false;
@@ -124,26 +127,22 @@ class Cpp
 	// id should be at least 256 bytes long
 	// res is nullptr if id
 	// id size is 0 if nothing
-	inline const char* res_or_id(const char *n, uint16_t *&res, char *id)
+	inline const char* res_or_id(const char *n, uint32_t &res, char *id)
 	{
-		uint32_t resc;
 		if (Token::type(n) == Token::Type::Identifier) {
 			Token::fill_nter(id, n);
-			if (cont_resolve_mut_rev(id, res)) {
-				resc = load_u16<uint32_t>(res);
+			if (cont_resolve_rev(id, res))
 				*id = 0;
-			}
 			n = next_exp();
 			if (!Token::is_op(n, Token::Op::Scope))
 				return n;
 			n = next_exp();
 		} else if (Token::is_op(n, Token::Op::Scope)) {
-			res = nullptr;	// can't mutate main namespace address
-			resc = 0;	// start from main namespace
+			res = 0;	// start from main namespace
 			n = next_exp();
 		} else {	// no clue what's going on
 			*id = 0;
-			res = nullptr;
+			res = 0;
 			return n;
 		}
 
@@ -152,9 +151,8 @@ class Cpp
 			if (Token::type(n) != Token::Type::Identifier)
 				error("Must have identifier");
 			Token::fill_nter(id, n);
-			if (!cont_resolve_mut(resc, id, res))
+			if (!cont_resolve(res, id, res))
 				error("No such member");
-			resc = load_u16<uint32_t>(res);
 			n = next_exp();
 			if (!Token::is_op(n, Token::Op::Scope))
 				break;
@@ -251,6 +249,92 @@ class Cpp
 
 	uint32_t m_building_type_base;
 
+	inline const char* parse_struct(Token::Op kind, uint32_t &struct_ndx)
+	{
+		auto n = next_exp();
+		char id[256];
+		uint32_t res;
+		size_t cur_type_size = m_size - m_building_type_base;
+		char cur_type[cur_type_size];
+		for (size_t i = 0; i < cur_type_size; i++)
+			cur_type[i] = m_buffer[m_building_type_base + i];
+		n = res_or_id(n, res, id);
+		if (Token::type(n) == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::LBra) {	// define
+				m_size = m_building_type_base;	// start from building type base
+				n = next_exp();
+				auto visib = kind == Token::Op::Class ? Type::Visib::Private : Type::Visib::Private;
+				auto last_cur = m_cur;
+				auto last_alt = m_cur_alt;
+				if (res) {	// define struct in existing
+					if (cont_map(res))
+						error("Multiple definition");
+					m_cur_alt = m_cur;	// set current context as fallback for resolution
+					m_cur = res;	// original definition is now current context
+					store(m_buffer + res + 1, m_blk.alloc());
+				} else {	// create struct entry
+					if (*id)	// otherwise anonymous struct
+						cont_insert(m_cur, id, m_size);
+					m_cur = m_size;
+					alloc(6);
+					m_buffer[m_size++] = static_cast<char>(ContType::Struct);
+					m_size += store(m_buffer + m_size, m_blk.alloc());
+					m_size += store_part<3>(m_buffer + m_size, m_cur);	// reference parent
+				}
+				while (true) {
+					if (Token::type(n) == Token::Type::Operator) {
+						auto o = Token::op(n);
+						if (o == Token::Op::RBra) {
+							n = next_exp();
+							break;
+						}
+						uint8_t on = static_cast<uint8_t>(o) - static_cast<uint8_t>(Token::Op::Private);
+						if (on < 3) {
+							visib = static_cast<Type::Visib>(on);
+							n = next_exp();
+							if (!Token::is_op(n, Token::Op::Colon))
+								error("Expected ':'");
+							n = next_exp();
+						}
+					}
+					parse_obj(n);
+				};
+				m_cur_alt = last_alt;
+				m_cur = last_cur;
+				goto wrote_def;
+			} else if (o == Token::Op::Semicolon) {	// fwd
+				if (res != 0) {	// already declared or fwd
+					if (cont_type(res) != ContType::Struct)
+						error("Invalid fwd");
+				} else if (*id) {
+					cont_insert(m_cur, id, m_size);
+					alloc(6);
+					m_buffer[m_size++] = static_cast<char>(ContType::Struct);
+					m_size += store(m_buffer + m_size, static_cast<uint16_t>(0));	// fwd: 0 map
+					m_size += store_part<3>(m_buffer + m_size, m_cur);	// reference parent
+					goto wrote_def;
+				} else
+					error("Can't fwd declare unnamed struct");
+				return n;
+			}
+		}
+		// reference
+		if (res)
+			struct_ndx = res;
+		else
+			error("No such struct");
+		return n;
+
+		// write def_base to res or id
+		wrote_def:;
+		m_building_type_base = m_size;
+		alloc(cur_type_size);
+		for (size_t i = 0; i < cur_type_size; i++)
+			m_buffer[m_size++] = cur_type[i];
+		return n;
+	}
+
 	// nested_id should be at least 256 bytes long (maximum token size)
 	// if nested_id is nullptr, means nested identified will be discarded
 	// nested_id will be filled with a null-terminated string, of size 0 if not found
@@ -258,6 +342,8 @@ class Cpp
 	{
 		uint8_t attrs = 0;
 		n = acc_type_attrs(n, attrs);
+		bool is_struct = false;
+		uint32_t struct_ndx = false;
 		char type;
 		if (attrs & TypeAttr::int_mask)	// attrs grabbed int type
 			type = (attrs & TypeAttr::cv_mask) | static_cast<char>(type_attr_intprim(attrs));
@@ -275,22 +361,15 @@ class Cpp
 					type = (attrs & TypeAttr::cv_mask) | o;
 					goto valid_type;
 				}
-				if (ob == Token::Op::Struct || ob == Token::Op::Class) {
-					n = next_exp();
-					char id[256];
-					uint16_t *res;
-					n = res_or_id(n, res, id);
-					if (Token::type(n) == Token::Type::Operator) {
-						auto o = Token::op(n);
-						if (o == Token::Op::LBra) {	// define
-							goto struct_parsed;
-						} else if (o == Token::Op::Semicolon) {	// fwd
-							goto struct_parsed;
-						}
-					}
-					// reference
-
-					struct_parsed:;
+				if (ob >= Token::Op::Class && ob <= Token::Op::Union) {
+					is_struct = true;
+					n = parse_struct(ob, struct_ndx);
+					n = acc_type_attrs(n, attrs);
+					if (Token::is_op(n, Token::Op::Semicolon))
+						if (attrs)
+							error("Can't have qualifiers on front of such declaration");
+					type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Struct);
+					goto valid_type;
 				}
 				o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Char8_t);
 				if (o <= 3) {
@@ -313,6 +392,10 @@ class Cpp
 		n = parse_type_nprim(n, nested_id);
 		alloc(1);
 		m_buffer[m_size++] = type;
+		if (is_struct) {
+			alloc(3);
+			m_size += store_part<3>(m_buffer + m_size, struct_ndx);
+		}
 		return n;
 	}
 

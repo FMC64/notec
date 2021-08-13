@@ -50,4 +50,10 @@ static inline constexpr bool is_const(char type)
 	return type & const_flag;
 }
 
+enum class Visib : char {
+	Private,
+	Protected,
+	Public
+};
+
 }

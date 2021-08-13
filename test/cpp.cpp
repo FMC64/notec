@@ -38,3 +38,23 @@ test_case(cpp_1)
 	test_assert(b[base + 1] == static_cast<char>(Type::Prim::Ptr));
 	test_assert(b[base + 2] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
 }
+
+test_case(cpp_2)
+{
+	auto c = init_file("typedef const struct { public: } S;");
+	c.run();
+	auto b = c.get_buffer();
+	test_assert(b[base + 0] == static_cast<char>(Cpp::ContType::Struct));
+	test_assert(load<uint16_t>(b + base + 1));
+	test_assert(load_part<3, uint32_t>(b + base + 3) == base);
+}
+
+test_case(cpp_3)
+{
+	auto c = init_file("typedef const struct S_t { public: } S;");
+	c.run();
+	auto b = c.get_buffer();
+	test_assert(b[base + 0] == static_cast<char>(Cpp::ContType::Struct));
+	test_assert(load<uint16_t>(b + base + 1));
+	test_assert(load_part<3, uint32_t>(b + base + 3) == base);
+}
