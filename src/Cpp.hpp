@@ -133,6 +133,8 @@ private:
 			Token::fill_nter(id, n);
 			if (cont_resolve_rev(id, res))
 				*id = 0;
+			else
+				res = 0;
 			n = next_exp();
 			if (!Token::is_op(n, Token::Op::Scope))
 				return n;

@@ -47,14 +47,21 @@ test_case(cpp_2)
 	test_assert(b[base + 0] == static_cast<char>(Cpp::ContType::Struct));
 	test_assert(load<uint16_t>(b + base + 1));
 	test_assert(load_part<3, uint32_t>(b + base + 3) == base);
+
+	test_assert(b[base + 6] == (Type::const_flag | static_cast<char>(Type::Prim::Struct)));
+	test_assert(load_part<3, uint32_t>(b + base + 7) == 0);
 }
 
 test_case(cpp_3)
 {
-	auto c = init_file("typedef const struct S_t { public: } S;");
+	auto c = init_file("typedef const struct S_t { public: } *S;");
 	c.run();
 	auto b = c.get_buffer();
 	test_assert(b[base + 0] == static_cast<char>(Cpp::ContType::Struct));
 	test_assert(load<uint16_t>(b + base + 1));
 	test_assert(load_part<3, uint32_t>(b + base + 3) == base);
+
+	test_assert(b[base + 6] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[base + 7] == (Type::const_flag | static_cast<char>(Type::Prim::Struct)));
+	test_assert(load_part<3, uint32_t>(b + base + 8) == 0);
 }
