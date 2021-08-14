@@ -60,7 +60,9 @@ public:
 		// arg count args
 		// 1 - non static member count
 		// non static members indexes, three bytes each
-		Struct
+		Struct,
+
+		Using
 	};
 
 private:
@@ -100,9 +102,9 @@ private:
 		while (true) {
 			if (cont_resolve(cont, name, res))
 				return true;
-			cont = cont_parent(cont);
 			if (cont == 0)
 				return false;
+			cont = cont_parent(cont);
 		}
 	}
 
@@ -367,6 +369,34 @@ private:
 		return n;
 	}
 
+	uint32_t skip_type(uint32_t t)
+	{
+		while (true) {
+			auto c = Type::prim(m_buffer[t]);
+			if (c < Type::Prim::Struct) {
+				t++;
+				return t;
+			}
+			if (c == Type::Prim::Struct) {
+				t += 4;
+				return t;
+			}
+			if (c == Type::Prim::Function) {
+				t = skip_type(t);
+				uint8_t s = m_buffer[t++];
+				for (uint8_t i = 0; i < s; i++)
+					t = skip_type(t);
+				return t;
+			}
+			t++;
+		}
+	}
+
+	uint32_t type_size(uint32_t t)
+	{
+		return skip_type(t) - t;
+	}
+
 	// nested_id should be at least 256 bytes long (maximum token size)
 	// if nested_id is nullptr, means nested identified will be discarded
 	// nested_id will be filled with a null-terminated string, of size 0 if not found
@@ -374,15 +404,16 @@ private:
 	{
 		uint8_t attrs = 0;
 		n = acc_type_attrs(n, attrs);
-		bool is_struct = false;
-		uint32_t struct_ndx;
+		ContType t_type = static_cast<ContType>(0);
+		uint32_t t_ndx;
 		char type;
 		if (attrs & TypeAttr::int_mask)	// attrs grabbed int type
 			type = (attrs & TypeAttr::cv_mask) | static_cast<char>(type_attr_intprim(attrs));
 		else {
 			if (attrs & TypeAttr::sign_mask)
 				error("Can't have signed or unsigned without integer type");
-			if (Token::type(n) == Token::Type::Operator) {
+			auto t = Token::type(n);
+			if (t == Token::Type::Operator) {
 				auto ob = Token::op(n);
 				auto o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Void);
 				if (o <= 4) {	// from op auto up to bool
@@ -394,8 +425,8 @@ private:
 					goto valid_type;
 				}
 				if (ob >= Token::Op::Class && ob <= Token::Op::Union) {
-					is_struct = true;
-					n = parse_struct(ob, struct_ndx);
+					t_type = ContType::Struct;
+					n = parse_struct(ob, t_ndx);
 					n = acc_type_attrs(n, attrs);
 					if (Token::is_op(n, Token::Op::Semicolon))
 						if (attrs)
@@ -414,19 +445,51 @@ private:
 					type = (attrs & TypeAttr::cv_mask) | (static_cast<uint8_t>(Type::Prim::U8) + 2 * o);
 					goto valid_type;
 				}
+			} else {
+				uint32_t res;
+				char id[256];
+				n = res_or_id(n, res, id);
+				n = acc_type_attrs(n, attrs);
+				if (res) {
+					auto t = cont_type(res);
+					if (t == ContType::Struct) {
+						t_type = ContType::Struct;
+						t_ndx = res;
+						type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Struct);
+						goto valid_type;
+					} else if (t == ContType::Using) {
+						t_type = ContType::Using;
+						t_ndx = res + 1;
+						goto valid_type;
+					} else
+						error("Bad type reference");
+				} else {
+					if (*id)
+						error("Unknown struct-like");
+					else
+						error("Expected struct-like name");
+				}
 			}
-			error("Bad type");
 			__builtin_unreachable();
 		}
 
 		valid_type:;
 		*nested_id = 0;
 		n = parse_type_nprim(n, nested_id);
-		alloc(1);
-		m_buffer[m_size++] = type;
-		if (is_struct) {
-			alloc(3);
-			m_size += store_part<3>(m_buffer + m_size, struct_ndx);
+		if (t_type == ContType::Using) {
+			auto s = type_size(t_ndx);
+			alloc(s);
+			auto base = m_size;
+			for (size_t i = 0; i < s; i++)
+				m_buffer[m_size++] = m_buffer[t_ndx++];
+			m_buffer[base] |= attrs & TypeAttr::cv_mask;
+		} else {
+			alloc(1);
+			m_buffer[m_size++] = type;
+			if (t_type == ContType::Struct) {
+				alloc(3);
+				m_size += store_part<3>(m_buffer + m_size, t_ndx);
+			}
 		}
 		return n;
 	}
@@ -514,9 +577,11 @@ private:
 					return parse_memb(n, base_off, static_cast<char>(Type::Storage::Extern));
 			} else if (o == Token::Op::Typedef) {
 				n = next_exp();
+				alloc(1);
+				m_buffer[m_size++] = static_cast<char>(ContType::Using);
 				char id[256];
 				uint32_t t;
-				n = parse_type_id(n, id, t, base_off);
+				n = parse_type_id(n, id, t, base_off + 1);
 				cont_insert(m_cur, id, t);
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");

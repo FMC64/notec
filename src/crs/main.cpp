@@ -41,7 +41,7 @@ int main(void)
 	}
 	c.include_dir(make_cstr("/crd0:"));	// first dir is system include
 	c.include_dir(make_cstr("/crd0:src"));
-	c.open(make_tstr(Token::Type::StringLiteral, "fxlib.h"));
+	c.open(make_tstr(Token::Type::StringLiteral, "dispbios.h"));
 	c.run();
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>("NOTE-C - no error"));

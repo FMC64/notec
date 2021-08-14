@@ -26,9 +26,9 @@ enum class Prim : char {
 	Lref,
 	Rref,
 
-	Param,	// followed by 1 byte of index to invocation table
-	Invoke	// 3 bytes = template index, then 1 byte = arg count, then arg count types
-	
+	// edit Cpp::skip_type when finally used
+	//Param,	// followed by 1 byte of index to invocation table
+	//Invoke	// 3 bytes = template index, then 1 byte = arg count, then arg count types
 };
 
 static inline constexpr char const_flag = 0x40;
