@@ -65,7 +65,6 @@ public:
 		Using
 	};
 
-private:
 	inline ContType cont_type(uint32_t cont) const
 	{
 		return static_cast<ContType>(m_buffer[cont]);
@@ -81,13 +80,26 @@ private:
 		return load_part<3, uint32_t>(m_buffer + cont + 3);
 	}
 
-	// name is null terminated
-	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res)
+	inline uint32_t cont_skip_overhead(uint32_t cont, uint32_t resolved) const
 	{
-		auto m = cont_map(cont);
-		return m_blk.resolve(m, name, res);
+		if (cont_type(cont) == ContType::Struct)
+			return resolved + 1;
+		else
+			return resolved;
 	}
 
+	// name is null terminated
+	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res, bool skip_overhead = false)
+	{
+		auto m = cont_map(cont);
+		if (!m_blk.resolve(m, name, res))
+			return false;
+		if (skip_overhead)
+			res = cont_skip_overhead(cont, res);
+		return true;
+	}
+
+private:
 	// name is null terminated
 	/*inline bool cont_resolve_mut(uint32_t cont, const char *name, uint16_t *&res)
 	{
@@ -97,10 +109,10 @@ private:
 	}*/
 
 	// name is null terminated
-	inline bool cont_resolve_rev(uint32_t cont, const char *name, uint32_t &res)
+	inline bool cont_resolve_rev(uint32_t cont, const char *name, uint32_t &res, bool skip_overhead = false)
 	{
 		while (true) {
-			if (cont_resolve(cont, name, res))
+			if (cont_resolve(cont, name, res, skip_overhead))
 				return true;
 			if (cont == 0)
 				return false;
@@ -109,11 +121,11 @@ private:
 	}
 
 	// name is null terminated
-	inline bool cont_resolve_rev(const char *name, uint32_t &res)
+	inline bool cont_resolve_rev(const char *name, uint32_t &res, bool skip_overhead = false)
 	{
-		if (cont_resolve_rev(m_cur, name, res))
+		if (cont_resolve_rev(m_cur, name, res, skip_overhead))
 			return true;
-		else if (m_cur_alt != 0 && cont_resolve_rev(m_cur_alt, name, res))
+		else if (m_cur_alt != 0 && cont_resolve_rev(m_cur_alt, name, res, skip_overhead))
 			return true;
 		else
 			return false;
@@ -129,11 +141,11 @@ private:
 	// id should be at least 256 bytes long
 	// res is nullptr if id
 	// id size is 0 if nothing
-	inline const char* res_or_id(const char *n, uint32_t &res, char *id)
+	inline const char* res_or_id(const char *n, uint32_t &res, char *id, bool skip_overhead = false)
 	{
 		if (Token::type(n) == Token::Type::Identifier) {
 			Token::fill_nter(id, n);
-			if (cont_resolve_rev(id, res))
+			if (cont_resolve_rev(id, res, skip_overhead))
 				*id = 0;
 			else
 				res = 0;
@@ -155,7 +167,7 @@ private:
 			if (Token::type(n) != Token::Type::Identifier)
 				error("Must have identifier");
 			Token::fill_nter(id, n);
-			if (!cont_resolve(res, id, res))
+			if (!cont_resolve(res, id, res, skip_overhead))
 				error("No such member");
 			n = next_exp();
 			if (!Token::is_op(n, Token::Op::Scope))
@@ -275,6 +287,8 @@ private:
 	}
 
 	uint32_t m_building_type_base;
+	bool m_has_visib = false;
+	Type::Visib m_cur_visib;
 
 	inline const char* parse_struct(Token::Op kind, uint32_t &struct_ndx)
 	{
@@ -285,13 +299,13 @@ private:
 		char cur_type[cur_type_size];
 		for (size_t i = 0; i < cur_type_size; i++)
 			cur_type[i] = m_buffer[m_building_type_base + i];
-		n = res_or_id(n, res, id);
+		n = res_or_id(n, res, id, true);
 		if (Token::type(n) == Token::Type::Operator) {
 			auto o = Token::op(n);
 			if (o == Token::Op::LBra) {	// define
 				m_size = m_building_type_base;	// start from building type base
 				n = next_exp();
-				auto visib = kind == Token::Op::Class ? Type::Visib::Private : Type::Visib::Public;
+
 				auto last_cur = m_cur;
 				auto last_alt = m_cur_alt;
 				if (res) {	// define struct in existing
@@ -304,6 +318,10 @@ private:
 				} else {	// create struct entry
 					if (*id)	// otherwise anonymous struct
 						cont_insert(m_cur, id, m_size);
+					if (m_has_visib) {
+						alloc(1);
+						m_buffer[m_size++] = static_cast<char>(m_cur_visib);
+					}
 					m_cur = m_size;
 					struct_ndx = m_cur;
 					m_cur_alt = 0;
@@ -312,6 +330,12 @@ private:
 					m_size += store(m_buffer + m_size, m_blk.alloc());
 					m_size += store_part<3>(m_buffer + m_size, last_cur);	// reference parent
 				}
+
+				auto last_has_visib = m_has_visib;
+				auto last_visib = m_cur_visib;
+				m_has_visib = true;
+				m_cur_visib = kind == Token::Op::Class ? Type::Visib::Private : Type::Visib::Public;
+
 				while (true) {
 					if (Token::type(n) == Token::Type::Operator) {
 						auto o = Token::op(n);
@@ -321,7 +345,7 @@ private:
 						}
 						uint8_t on = static_cast<uint8_t>(o) - static_cast<uint8_t>(Token::Op::Private);
 						if (on < 3) {
-							visib = static_cast<Type::Visib>(on);
+							m_cur_visib = static_cast<Type::Visib>(on);
 							n = next_exp();
 							if (!Token::is_op(n, Token::Op::Colon))
 								error("Expected ':'");
@@ -330,10 +354,13 @@ private:
 						}
 					}
 					alloc(1);
-					m_buffer[m_size++] = static_cast<char>(visib);
-					parse_obj(n);
+					m_buffer[m_size++] = static_cast<char>(m_cur_visib);
+					parse_obj(n, 1);
 					n = next_exp();
 				};
+				m_has_visib = last_has_visib;
+				m_cur_visib = last_visib;
+
 				m_cur_alt = last_alt;
 				m_cur = last_cur;
 				goto wrote_def;
@@ -448,7 +475,7 @@ private:
 			} else {
 				uint32_t res;
 				char id[256];
-				n = res_or_id(n, res, id);
+				n = res_or_id(n, res, id, true);
 				n = acc_type_attrs(n, attrs);
 				if (res) {
 					auto t = cont_type(res);
@@ -545,8 +572,8 @@ private:
 		char id[256];
 		n = parse_type(n, id, t, base_off + 1);
 		if (*id == 0) {
-			if (Token::is_op(n, Token::Op::Semicolon) && Type::prim(m_buffer[t + 1]) == Type::Prim::Struct) {
-				if ((m_buffer[t + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
+			if (Token::is_op(n, Token::Op::Semicolon) && Type::prim(m_buffer[t + base_off + 1]) == Type::Prim::Struct) {
+				if ((m_buffer[t + base_off + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
 					error("Can't qualify struct declaration");
 				m_size = t;	// remove in-building type
 				return;
@@ -591,7 +618,7 @@ private:
 				if (Token::type(n) != Token::Type::Identifier)
 					error("Expected identifier");
 				token_nter(nn, n);
-				cont_insert(m_cur, n, m_size);
+				cont_insert(m_cur, nn, m_size);
 				auto last_cur = m_cur;
 				auto last_alt = m_cur_alt;
 				m_cur = m_size;
@@ -608,7 +635,7 @@ private:
 				while (true) {
 					if (Token::is_op(n, Token::Op::RBra))
 						break;
-					parse_obj(n);
+					parse_obj(n, base_off);
 					n = next_exp();
 				}
 				m_cur_alt = last_alt;
