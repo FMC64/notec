@@ -1014,6 +1014,21 @@ public:
 		m_row = 1;
 	}
 
+	inline bool reopen(void)
+	{
+		bool res = false;
+		const char *s;
+		if (m_stack > m_stack_base) {
+			s = get_file_sign();
+			m_stream.close();
+		} else {
+			s = m_stack_base;
+			res = true;
+		}
+		m_stream.open(s, nullptr, m_stack, nullptr);
+		return res;
+	}
+
 	inline const char* get_file_path(void) const
 	{
 		return m_stack - static_cast<uint8_t>(m_stack[-2]);

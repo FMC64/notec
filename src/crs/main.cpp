@@ -27,7 +27,29 @@ int main(void)
 	auto cc = cpp_ref.capture(c);
 	catch (c.err_src()) {
 		auto err = c.err_src().get_error();
-		locate(1, 1);
+		{
+			auto tc = c.err_src().reopen();
+			auto o = c.err_src().get_off();
+			size_t d = 10;
+			size_t car = d;
+			if (o < d) {
+				car = d - o;
+				o = 0;
+			} else
+				o -= d;
+			auto tr = c.err_src().get_stream().seek(o);
+			tr = 21;
+			char buf[tr + 1];
+			buf[tr] = 0;
+			c.err_src().get_stream().read(buf, tr);
+			if (tc)
+				c.err_src().get_stream().close();
+			locate(1, 1);
+			Print(reinterpret_cast<const uint8_t*>(buf));
+			locate(1 + car, 2);
+			Print(reinterpret_cast<const uint8_t*>("^"));
+		}
+		locate(1, 3);
 		if (err[0] <= Token::type_range) {
 			token_nter(errnt, err);
 			Print(reinterpret_cast<const uint8_t*>(errnt));

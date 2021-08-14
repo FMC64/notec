@@ -231,11 +231,12 @@ public:
 		return false;
 	}
 
-	inline void seek(size_t ndx)
+	inline size_t seek(size_t ndx)
 	{
 		auto r = Bfile_SeekFile(m_handle, ndx);
 		if (r < 0)
 			tactical_exit("Bfile_SeekFile failed", r);
+		return r;
 	}
 
 	inline void close(void)
