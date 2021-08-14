@@ -476,6 +476,7 @@ private:
 					type = (attrs & TypeAttr::cv_mask) | (static_cast<uint8_t>(Type::Prim::U8) + 2 * o);
 					goto valid_type;
 				}
+				error("Bad op for type decl");
 			} else {
 				uint32_t res;
 				char id[256];
@@ -496,9 +497,9 @@ private:
 						error("Bad type reference");
 				} else {
 					if (*id)
-						error("Unknown struct-like");
+						error("Unknown object");
 					else
-						error("Expected struct-like name");
+						error("Expected a type");
 				}
 			}
 			__builtin_unreachable();
