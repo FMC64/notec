@@ -525,11 +525,11 @@ private:
 		auto n = next_exp();
 		if (Token::is_op(n, Token::Op::LBra)) {
 			n = next_exp();
-			if (!Token::is_op(n, Token::Op::RBra)) {
+			while (true) {
+				if (Token::is_op(n, Token::Op::RBra))
+					break;
 				parse_obj(n);
 				n = next_exp();
-				if (!Token::is_op(n, Token::Op::RBra))
-					error("Expected '}'");
 			}
 		} else
 			parse_obj(n);
