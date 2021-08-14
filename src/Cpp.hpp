@@ -91,6 +91,8 @@ public:
 	// name is null terminated
 	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res, bool skip_overhead = false)
 	{
+		if (cont_type(cont) > ContType::Struct)
+			error("Not a namespace or struct");
 		auto m = cont_map(cont);
 		if (!m_blk.resolve(m, name, res))
 			return false;
@@ -309,6 +311,8 @@ private:
 				auto last_cur = m_cur;
 				auto last_alt = m_cur_alt;
 				if (res) {	// define struct in existing
+					if (cont_type(res) != ContType::Struct)
+						error("Not a struct-like");
 					if (cont_map(res))
 						error("Multiple definition");
 					m_cur = res;	// original definition is now current context
@@ -615,23 +619,38 @@ private:
 				return;
 			} else if (o == Token::Op::Namespace) {
 				n = next_exp();
-				if (Token::type(n) != Token::Type::Identifier)
-					error("Expected identifier");
-				token_nter(nn, n);
-				cont_insert(m_cur, nn, m_size);
 				auto last_cur = m_cur;
 				auto last_alt = m_cur_alt;
-				m_cur = m_size;
 				m_cur_alt = 0;
-				auto map = m_blk.alloc();
-				alloc(6);
-				m_buffer[m_size++] = static_cast<char>(ContType::Namespace);
-				m_size += store(m_buffer + m_size, map);
-				m_size += store_part<3>(m_buffer + m_size, 0);
-				n = next_exp();
-				if (!Token::is_op(n, Token::Op::LBra))
-					error("Expected '{'");
-				n = next_exp();
+				while (true) {
+					if (Token::type(n) != Token::Type::Identifier)
+						error("Expected identifier");
+					token_nter(nn, n);
+					if (cont_resolve(m_cur, nn, m_cur, true)) {
+						if (cont_type(m_cur) != ContType::Namespace)
+							error("Not a namespace");
+					} else {
+						cont_insert(m_cur, nn, m_size);
+						m_cur = m_size;
+						auto map = m_blk.alloc();
+						alloc(6);
+						m_buffer[m_size++] = static_cast<char>(ContType::Namespace);
+						m_size += store(m_buffer + m_size, map);
+						m_size += store_part<3>(m_buffer + m_size, 0);
+					}
+					n = next_exp();
+					if (Token::type(n) == Token::Type::Operator) {
+						auto o = Token::op(n);
+						if (o == Token::Op::LBra) {
+							n = next_exp();
+							break;
+						} else if (o == Token::Op::Scope) {
+							n = next_exp();
+							continue;
+						}
+					}
+					error("Illegal token");
+				}
 				while (true) {
 					if (Token::is_op(n, Token::Op::RBra))
 						break;

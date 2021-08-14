@@ -268,3 +268,86 @@ typedef struct aabb2_s{
 		test_assert(load_part<3, uint32_t>(b + size) == vec2b);
 	}
 }
+
+test_case(cpp_8)
+{
+	auto c = init_file(
+R"raw(
+
+namespace ns {
+	bool ia;
+}
+
+namespace ns {
+	short ib;
+}
+
+)raw"
+);
+	c.run();
+	RESOLVE(0, ns);
+	RESOLVE(ns, ia);
+	RESOLVE(ns, ib);
+}
+
+test_case(cpp_9)
+{
+	auto c = init_file(
+R"raw(
+
+namespace ns {
+	namespace a::bn::cn {
+		int ig;
+	}
+}
+
+namespace ns {
+	namespace a{
+		namespace bn {
+			namespace cn {
+				unsigned int ih;
+			}
+		}
+	}
+}
+
+)raw"
+);
+	c.run();
+	RESOLVE(0, ns);
+	RESOLVE(ns, a);
+	RESOLVE(a, bn);
+	RESOLVE(bn, cn);
+	RESOLVE(cn, ig);
+	RESOLVE(cn, ih);
+}
+
+test_case(cpp_10)
+{
+	auto c = init_file(
+R"raw(
+
+namespace ns {
+	struct A;
+}
+
+namespace nsb {
+	struct nsc {
+		struct ns::A {
+			short bi;
+		};
+	};
+}
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, ns);
+	RESOLVE(ns, A);
+	test_assert(b[A] == static_cast<char>(Cpp::ContType::Struct));
+	RESOLVE(A, bi);
+	test_assert(b[bi++] == static_cast<char>(Type::Visib::Public));
+	test_assert(b[bi++] == 0);
+	test_assert(b[bi++] == static_cast<char>(Type::Prim::S16));
+}
