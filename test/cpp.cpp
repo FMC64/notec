@@ -20,6 +20,7 @@ static Cpp init_file(const char *src)
 static inline constexpr size_t base = 6;
 
 #define RESOLVE(cont, name) uint32_t name; test_assert(c.cont_resolve(cont, #name, name));
+#define MUST_NOT_RESOLVE(cont, name) uint32_t name; test_assert(!c.cont_resolve(cont, #name, name));
 
 test_case(cpp_0)
 {
@@ -350,4 +351,82 @@ namespace nsb {
 	test_assert(b[bi++] == static_cast<char>(Type::Visib::Public));
 	test_assert(b[bi++] == 0);
 	test_assert(b[bi++] == static_cast<char>(Type::Prim::S16));
+}
+
+test_case(cpp_11)
+{
+	auto c = init_file(
+R"raw(
+
+enum en : const char {
+	A,
+	B,
+	C
+};
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, en);
+	auto enb = en;
+	test_assert(b[en++] == static_cast<char>(Cpp::ContType::Enum));
+	test_assert(load<uint16_t>(b + en));
+	en += 2;
+	test_assert(load_part<3, uint32_t>(b + en) == 0);
+	en += 3;
+	test_assert(b[en++] == false);
+	test_assert(b[en++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+
+	RESOLVE(0, A);
+	{
+		RESOLVE(enb, A);
+	}
+	RESOLVE(0, B);
+	{
+		RESOLVE(enb, B);
+	}
+	RESOLVE(0, C);
+	{
+		RESOLVE(enb, C);
+	}
+}
+
+test_case(cpp_12)
+{
+	auto c = init_file(
+R"raw(
+
+enum class en : const unsigned short {
+	A,
+	B,
+	C
+};
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, en);
+	auto enb = en;
+	test_assert(b[en++] == static_cast<char>(Cpp::ContType::Enum));
+	test_assert(load<uint16_t>(b + en));
+	en += 2;
+	test_assert(load_part<3, uint32_t>(b + en) == 0);
+	en += 3;
+	test_assert(b[en++] == true);
+	test_assert(b[en++] == (Type::const_flag | static_cast<char>(Type::Prim::U16)));
+
+	MUST_NOT_RESOLVE(0, A);
+	{
+		RESOLVE(enb, A);
+	}
+	MUST_NOT_RESOLVE(0, B);
+	{
+		RESOLVE(enb, B);
+	}
+	MUST_NOT_RESOLVE(0, C);
+	{
+		RESOLVE(enb, C);
+	}
 }

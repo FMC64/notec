@@ -17,6 +17,7 @@ enum class Prim : char {
 	U64,
 
 	Struct,	// followed by 3 bytes of index to struct def
+	Enum,	// followed by 3 bytes of index to enum def
 	Function,	// return type then 1 byte arg count, then arg count types
 
 	Ptr,

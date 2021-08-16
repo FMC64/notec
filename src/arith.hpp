@@ -67,6 +67,18 @@ size_t store_part(char *dst, const T &src)
 	return Size;
 }
 
+template <typename T>
+size_t store_part(char *dst, size_t size, const T &src)
+{
+	auto csrc = reinterpret_cast<const char*>(&src);
+#ifndef CINT_HOST	// big-endian
+	csrc += sizeof(T) - size;
+#endif
+	for (size_t i = 0; i < size; i++)
+		*dst++ = *csrc++;
+	return size;
+}
+
 template <size_t Size, typename T>
 T load_part(const char *src)
 {

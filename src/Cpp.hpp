@@ -50,11 +50,21 @@ public:
 		// 1 - type
 		// 2 - map root
 		// 3 - parent
+		// TOTAL: 6
 		Namespace,
 
 		// 1 - type
 		// 2 - map root
 		// 3 - parent
+		// 1 - is class
+		// 1 - underlying type
+		// TOTAL: 8
+		Enum,
+
+		// 1 - type
+		// 2 - map root
+		// 3 - parent
+		// TOTAL: 6
 		// BELOW NOT USED FOR NOW
 		// 1 - arg count
 		// arg count args
@@ -62,12 +72,25 @@ public:
 		// non static members indexes, three bytes each
 		Struct,
 
-		Using
+		Using,	// then type
+		Value	// then type and the value
 	};
 
 	inline ContType cont_type(uint32_t cont) const
 	{
 		return static_cast<ContType>(m_buffer[cont]);
+	}
+
+	inline uint32_t assert_cont_map(uint32_t cont)
+	{
+		auto t = cont_type(cont);
+		if (t > ContType::Struct)
+			error("Not a namespace or struct");
+		auto r = cont_map(cont);
+		if (t == ContType::Struct || t == ContType::Enum)
+			if (r == 0)
+				error("Not yet defined");
+		return r;
 	}
 
 	inline uint16_t cont_map(uint32_t cont) const
@@ -91,9 +114,7 @@ public:
 	// name is null terminated
 	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res, bool skip_overhead = false)
 	{
-		if (cont_type(cont) > ContType::Struct)
-			error("Not a namespace or struct");
-		auto m = cont_map(cont);
+		auto m = assert_cont_map(cont);
 		if (!m_blk.resolve(m, name, res))
 			return false;
 		if (skip_overhead)
@@ -400,7 +421,136 @@ private:
 		return n;
 	}
 
-	uint32_t skip_type(uint32_t t)
+	inline size_t integer_size(char i)
+	{
+		auto p = (static_cast<char>(Type::prim(i)) - static_cast<char>(Type::Prim::S8)) >> 1;
+		return 1 << p;
+	}
+
+	inline const char* parse_enum(uint32_t &enum_ndx)
+	{
+		auto n = next_exp();
+		bool is_class = Token::is_op(n, Token::Op::Class);
+		if (is_class)
+			n = next_exp();
+		char id[256];
+		uint32_t res;
+		size_t cur_type_size = m_size - m_building_type_base;
+		char cur_type[cur_type_size];
+		for (size_t i = 0; i < cur_type_size; i++)
+			cur_type[i] = m_buffer[m_building_type_base + i];
+		n = res_or_id(n, res, id, true);
+		char t = static_cast<char>(Type::Prim::S32);
+		if (Token::is_op(n, Token::Op::Colon)) {
+			n = next_exp();
+			n = parse_integral(n, t);
+			if (!Token::is_op(n, Token::Op::LBra))
+				error("Expected enum definition");
+		}
+		auto t_size = integer_size(t);
+		auto tv = is_class ? (t & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Enum) : t;
+		if (Token::type(n) == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::LBra) {	// define
+				m_size = m_building_type_base;	// start from building type base
+				n = next_exp();
+
+				auto last_cur = m_cur;
+				auto last_alt = m_cur_alt;
+				if (res) {	// define struct in existing
+					if (cont_type(res) != ContType::Enum)
+						error("Not an enum-like");
+					if (cont_map(res))
+						error("Multiple definition");
+					m_cur = res;	// original definition is now current context
+					enum_ndx = m_cur;
+					m_cur_alt = m_cur;	// set current context as fallback for resolution
+					store(m_buffer + res + 1, m_blk.alloc());
+					m_buffer[res + 6] = is_class;
+					m_buffer[res + 7] = t;
+				} else {	// create enum entry
+					if (*id)	// otherwise anonymous enum
+						cont_insert(m_cur, id, m_size);
+					if (m_has_visib) {
+						alloc(1);
+						m_buffer[m_size++] = static_cast<char>(m_cur_visib);
+					}
+					m_cur = m_size;
+					enum_ndx = m_cur;
+					m_cur_alt = 0;
+					alloc(8);
+					m_buffer[m_size++] = static_cast<char>(ContType::Enum);
+					m_size += store(m_buffer + m_size, m_blk.alloc());
+					m_size += store_part<3>(m_buffer + m_size, last_cur);	// reference parent
+					m_buffer[m_size++] = is_class;
+					m_buffer[m_size++] = t;
+				}
+
+				uint32_t c = 0;
+				while (true) {
+					if (Token::is_op(n, Token::Op::RBra)) {
+						n = next_exp();
+						break;
+					}
+					if (Token::type(n) != Token::Type::Identifier)
+						error("Expected id");
+					token_nter(nn, n);
+					n = next_exp();
+
+					auto entry = m_size;
+					alloc(1 + (is_class ? 4 : 1) + t_size);
+					m_buffer[m_size++] = static_cast<char>(ContType::Value);
+					m_buffer[m_size++] = tv;
+					if (is_class)
+						m_size += store_part<3>(m_buffer + m_size, m_cur);
+					store_part(m_buffer + m_size, t_size, c);
+
+					cont_insert(m_cur, nn, entry);
+					if (!is_class)
+						cont_insert(last_cur, nn, entry);
+
+					if (Token::is_op(n, Token::Op::Comma))
+						n = next_exp();
+					c++;
+				};
+
+				m_cur_alt = last_alt;
+				m_cur = last_cur;
+				goto wrote_def;
+			} else if (o == Token::Op::Semicolon) {	// fwd, illegal but why not for now
+				if (res != 0) {	// already declared or fwd
+					if (cont_type(res) != ContType::Enum)
+						error("Invalid fwd");
+				} else if (*id) {
+					cont_insert(m_cur, id, m_size);
+					alloc(8);
+					m_buffer[m_size++] = static_cast<char>(ContType::Enum);
+					m_size += store(m_buffer + m_size, static_cast<uint16_t>(0));	// fwd: 0 map
+					m_size += store_part<3>(m_buffer + m_size, m_cur);	// reference parent
+					m_size += 2;
+					goto wrote_def;
+				} else
+					error("Can't fwd declare unnamed enum");
+				return n;
+			}
+		}
+		// reference
+		if (res)
+			enum_ndx = res;
+		else
+			error("No such enum");
+		return n;
+
+		// write def_base to res or id
+		wrote_def:;
+		m_building_type_base = m_size;
+		alloc(cur_type_size);
+		for (size_t i = 0; i < cur_type_size; i++)
+			m_buffer[m_size++] = cur_type[i];
+		return n;
+	}
+
+	inline uint32_t skip_type(uint32_t t)
 	{
 		while (true) {
 			auto c = Type::prim(m_buffer[t]);
@@ -408,7 +558,7 @@ private:
 				t++;
 				return t;
 			}
-			if (c == Type::Prim::Struct) {
+			if (c == Type::Prim::Struct || c == Type::Prim::Enum) {
 				t += 4;
 				return t;
 			}
@@ -423,7 +573,7 @@ private:
 		}
 	}
 
-	uint32_t type_size(uint32_t t)
+	inline uint32_t type_size(uint32_t t)
 	{
 		return skip_type(t) - t;
 	}
@@ -465,6 +615,13 @@ private:
 					type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Struct);
 					goto valid_type;
 				}
+				if (ob == Token::Op::Enum) {
+					t_type = ContType::Enum;
+					n = parse_enum(t_ndx);
+					n = acc_type_attrs(n, attrs);
+					type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Enum);
+					goto valid_type;
+				}
 				o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Char8_t);
 				if (o <= 3) {
 					n = next_exp();
@@ -493,6 +650,10 @@ private:
 						t_type = ContType::Using;
 						t_ndx = res + 1;
 						goto valid_type;
+					} else if (t == ContType::Enum) {
+						t_type = ContType::Enum;
+						t_ndx = res;
+						type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::S32);
 					} else
 						error("Bad type reference");
 				} else {
@@ -518,7 +679,7 @@ private:
 		} else {
 			alloc(1);
 			m_buffer[m_size++] = type;
-			if (t_type == ContType::Struct) {
+			if (t_type == ContType::Struct || t_type == ContType::Enum) {
 				alloc(3);
 				m_size += store_part<3>(m_buffer + m_size, t_ndx);
 			}
@@ -546,6 +707,21 @@ private:
 			Token::fill_nter(id, n);
 			n = next_exp();
 		}
+		return n;
+	}
+
+	inline const char* parse_integral(const char *n, char &res)
+	{
+		auto exp_ndx = m_size;
+		char id[256];
+		uint32_t ndx;
+		n = parse_type(n, id, ndx);
+		if (ndx != exp_ndx || (m_size - ndx) != 1)
+			error("Expected integral type");
+		res = m_buffer[ndx];
+		auto p = Type::prim(res);
+		if (!(p >= Type::Prim::S8 && p <= Type::Prim::U32))
+			error("Expected integer type");
 		return n;
 	}
 
@@ -577,9 +753,10 @@ private:
 		char id[256];
 		n = parse_type(n, id, t, base_off + 1);
 		if (*id == 0) {
-			if (Token::is_op(n, Token::Op::Semicolon) && Type::prim(m_buffer[t + base_off + 1]) == Type::Prim::Struct) {
+			auto p = Type::prim(m_buffer[t + base_off + 1]);
+			if (Token::is_op(n, Token::Op::Semicolon) && (p == Type::Prim::Struct || p == Type::Prim::Enum)) {
 				if ((m_buffer[t + base_off + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
-					error("Can't qualify struct declaration");
+					error("Can't qualify struct/enum declaration");
 				m_size = t;	// remove in-building type
 				return;
 			}
