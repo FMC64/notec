@@ -36,6 +36,7 @@ int main(void)
 	Cpp c;
 	auto cc = cpp_ref.capture(c);
 	catch (c.err_src()) {
+		display_pressure(c.get_pressure());
 		auto err = c.err_src().get_error();
 		{
 			auto tc = c.err_src().reopen();
