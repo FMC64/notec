@@ -163,6 +163,16 @@ public:
 		return r;
 	}
 
+	size_t get_count(void) const
+	{
+		return m_count;
+	}
+
+	size_t get_allocated(void) const
+	{
+		return m_allocated;
+	}
+
 private:
 	inline void add_blocks(size_t count)
 	{

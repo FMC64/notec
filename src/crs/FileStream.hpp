@@ -6,8 +6,9 @@
 #include "StrMap.hpp"
 #include <fxlib.h>
 
-static inline void tactical_exit(const char *msg, int code)
+static inline void tactical_exit(const char *msg, int code, bool stuck = true)
 {
+	Bdisp_AllClr_DDVRAM();
 	locate(1, 1);
 	Print(reinterpret_cast<const uint8_t*>("FATAL ERROR"));
 	locate(1, 2);
@@ -37,10 +38,10 @@ static inline void tactical_exit(const char *msg, int code)
 		*c = 0;
 	}
 	Print(reinterpret_cast<const uint8_t*>(cbuf));
-	while (1) {
+	do {
 		unsigned int key;
 		GetKey(&key);
-	}
+	} while (stuck);
 }
 
 class Stream

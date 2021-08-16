@@ -19,6 +19,16 @@ static void on_terminate(void)
 	cpp_ref.destroy();
 }
 
+void display_pressure(const Cpp::Pressure &pres)
+{
+	tactical_exit("TOTAL PRESSURE", pres.total(), false);
+	tactical_exit("buffer", pres.buffer, false);
+	tactical_exit("map", pres.map, false);
+	tactical_exit("macros buffer", pres.macros_buffer, false);
+	tactical_exit("macros map", pres.macros_map, false);
+	Bdisp_AllClr_DDVRAM();
+}
+
 int main(void)
 {
 	SetQuitHandler(on_terminate);

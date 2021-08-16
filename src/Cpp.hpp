@@ -884,4 +884,30 @@ public:
 	{
 		return m_buffer;
 	}
+
+	struct Pressure
+	{
+		size_t buffer;
+		size_t map;
+		size_t macros_buffer;
+		size_t macros_map;
+
+		size_t total(void) const
+		{
+			return buffer +
+				map +
+				macros_buffer +
+				macros_map;
+		}
+	};
+
+	inline Pressure get_pressure(void) const
+	{
+		Pressure res;
+		res.buffer = m_size;
+		res.map = m_blk.get_count();
+		res.macros_buffer = m_pp.m_size;
+		res.macros_map = m_pp.m_blk.get_count();
+		return res;
+	}
 };
