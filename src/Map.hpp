@@ -79,7 +79,7 @@ private:
 	inline bool walk_through_node(char *cur, char *&s, const char *&str)
 	{
 		s = cur + 4;
-		while (*str == *s) {
+		while (*str == *s && *str) {
 			str++;
 			s++;
 		}
@@ -278,7 +278,7 @@ public:
 				return false;	// no match in inline
 			bool has_next = *s & Attr::has_next;
 			if (*str == 0) {
-				*s &= ~Attr::has_payload;
+				*s &= ~(Attr::has_payload | Attr::payload_ind);
 				return true;
 			}
 			if (has_next)
