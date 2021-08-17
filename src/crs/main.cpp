@@ -24,8 +24,7 @@ void display_pressure(const Cpp::Pressure &pres)
 	tactical_exit("TOTAL PRESSURE", pres.total(), false);
 	tactical_exit("buffer", pres.buffer, false);
 	tactical_exit("map", pres.map, false);
-	tactical_exit("macros buffer", pres.macros_buffer, false);
-	tactical_exit("macros map", pres.macros_map, false);
+	tactical_exit("macros", pres.macros, false);
 	Bdisp_AllClr_DDVRAM();
 }
 

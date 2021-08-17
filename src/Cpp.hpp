@@ -889,15 +889,13 @@ public:
 	{
 		size_t buffer;
 		size_t map;
-		size_t macros_buffer;
-		size_t macros_map;
+		size_t macros;
 
 		size_t total(void) const
 		{
 			return buffer +
 				map +
-				macros_buffer +
-				macros_map;
+				macros;
 		}
 	};
 
@@ -906,8 +904,7 @@ public:
 		Pressure res;
 		res.buffer = m_size;
 		res.map = m_blk.get_count() * 2;
-		res.macros_buffer = m_pp.m_size;
-		res.macros_map = m_pp.get_count() * 2;
+		res.macros = m_pp.get_count();
 		return res;
 	}
 };
