@@ -53,6 +53,22 @@ private:
 		}
 	}
 
+	inline bool search_node_ins(char *cur, char c, char *&res)
+	{
+		while (true) {	// search node
+			if (cur[3] == c) {
+				res = cur;
+				return true;
+			}
+			auto n = ::load_part<3, uint32_t>(cur);
+			if (n == 0) {
+				res = cur;
+				return false;
+			}
+			cur = m_buffer + n;
+		}
+	}
+
 	inline bool walk_through_node(char *cur, char *&s, const char *&str)
 	{
 		s = cur + 4;
@@ -70,9 +86,12 @@ private:
 
 	inline char* get_payload(char *nter, bool has_next)
 	{
-		if (*nter & Attr::has_payload)
-			return nter + (has_next ? 4 : 1);
-		else	// node has no payload, just a splitting point
+		if (*nter & Attr::has_payload) {
+			auto res = nter + (has_next ? 4 : 1);
+			if (*nter & Attr::payload_ind)
+				res = m_buffer + ::load_part<3, uint32_t>(res);
+			return res;
+		} else	// node has no payload, just a splitting point
 			return nullptr;
 	}
 
@@ -80,19 +99,50 @@ private:
 	{
 		static inline constexpr char has_payload = 0x01;
 		static inline constexpr char has_next = 0x02;
+		static inline constexpr char payload_ind = 0x04;
 	};
 
 public:
-	inline void insert(uint32_t root, const char *str)
+	inline bool insert(uint32_t root, const char *str)
 	{
+		char *cur = m_buffer + root;
+		char *last = cur;
+		while (true) {
+			if (!search_node_ins(cur, *str, cur)) {	// no node match, insert at cur (cleanest, no cost)
+				::store_part<3>(cur, m_size);
+				alloc(3);
+				store_part<3>(0);
+				while (*str) {
+					alloc(2);
+					store(*str++);
+				}
+				store(static_cast<char>(Attr::has_payload));
+				return true;
+			}
+			str++;
+			char *s;
+			if (!walk_through_node(cur, s, str))
+				return false;	// no match in inline
+			bool has_next = *s & Attr::has_next;
+			if (*str == 0) {
+				auto p = get_payload(s, has_next);
+				return false;
+			}
+			if (has_next)
+				cur = nter_next(s);
+			else
+				return false;
+		}
 	}
 
 	template <typename T>
-	inline void insert(uint32_t root, const char *str, const T &v)
+	inline bool insert(uint32_t root, const char *str, const T &v)
 	{
-		insert(root, str);
+		if (!insert(root, str))
+			return false;
 		alloc(sizeof(T));
 		store(v);
+		return true;
 	}
 
 	inline char* resolve(uint32_t root, const char *str)
