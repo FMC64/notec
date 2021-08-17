@@ -8,6 +8,11 @@ class Map
 	char *m_buffer = nullptr;
 
 public:
+	~Map(void)
+	{
+		free(m_buffer);
+	}
+
 	inline void alloc(size_t size)
 	{
 		auto needed = m_size + size;
@@ -36,7 +41,7 @@ public:
 		auto res = m_size;
 		alloc(4);
 		store_part<3>(0);
-		store(static_cast<uint8_t>(0xFF));
+		store(static_cast<uint8_t>(0x7F));
 		return res;
 	}
 
@@ -53,7 +58,7 @@ private:
 		}
 	}
 
-	inline bool search_node_ins(char *cur, char c, char *&res)
+	inline bool search_node_ins(char *cur, char c, char *&res, char *&last)
 	{
 		while (true) {	// search node
 			if (cur[3] == c) {
@@ -65,6 +70,7 @@ private:
 				res = cur;
 				return false;
 			}
+			last = cur;
 			cur = m_buffer + n;
 		}
 	}
@@ -160,7 +166,7 @@ public:
 		char *cur = m_buffer + root;
 		char *last = cur;
 		while (true) {
-			if (!search_node_ins(cur, *str, cur)) {	// no node match, insert at cur (cleanest, no cost)
+			if (!search_node_ins(cur, *str, cur, last)) {	// no node match, insert at cur (cleanest, no cost)
 				::store_part<3>(cur, m_size);
 				insert_str_payload_node(str);
 				return true;
@@ -190,6 +196,7 @@ public:
 					alloc(3);
 					store_part<3>(static_cast<uint32_t>(m_size + 3));
 					auto fptr = m_size;
+					m_size += 3;
 					char ow_ptr[3];
 					copy_node(mid_nter, nter, m_buffer[nter], false, ow_ptr);
 					::store_part<3>(m_buffer + fptr, static_cast<uint32_t>(m_size));
@@ -252,7 +259,7 @@ public:
 		auto p = resolve(root, str);
 		if (p == nullptr)
 			return false;
-		v = ::load<T>(reinterpret_cast<char*>(&v));
+		v = ::load<T>(p);
 		return true;
 	}
 };
