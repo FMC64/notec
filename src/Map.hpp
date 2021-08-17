@@ -41,7 +41,46 @@ public:
 	}
 
 private:
+	inline char* search_node(char *cur, char c)
+	{
+		while (true) {	// search node
+			if (cur[3] == c)
+				return cur;
+			auto n = ::load_part<3, uint32_t>(cur);
+			if (n == 0)
+				return nullptr;
+			cur = m_buffer + n;
+		}
+	}
 
+	inline bool walk_through_node(char *cur, char *&s, const char *&str)
+	{
+		s = cur + 4;
+		while (*str == *s) {
+			str++;
+			s++;
+		}
+		return *s < 32;
+	}
+
+	inline char* nter_next(const char *nter)
+	{
+		return m_buffer + ::load_part<3, uint32_t>(nter + 1);
+	}
+
+	inline char* get_payload(char *nter, bool has_next)
+	{
+		if (*nter & Attr::has_payload)
+			return nter + (has_next ? 4 : 1);
+		else	// node has no payload, just a splitting point
+			return nullptr;
+	}
+
+	struct Attr
+	{
+		static inline constexpr char has_payload = 0x01;
+		static inline constexpr char has_next = 0x02;
+	};
 
 public:
 	inline void insert(uint32_t root, const char *str)
@@ -58,7 +97,22 @@ public:
 
 	inline char* resolve(uint32_t root, const char *str)
 	{
-		return nullptr;
+		char *cur = m_buffer + root;
+		while (true) {
+			cur = search_node(cur, *str++);
+			if (cur == nullptr)
+				return nullptr;	// no node match
+			char *s;
+			if (!walk_through_node(cur, s, str))
+				return nullptr;	// no match in inline
+			bool has_next = *s & Attr::has_next;
+			if (*str == 0)
+				return get_payload(s, has_next);
+			if (has_next)
+				cur = nter_next(s);
+			else	// no sub child
+				return nullptr;
+		}
 	}
 
 	template <typename T>
