@@ -907,7 +907,7 @@ public:
 		res.buffer = m_size;
 		res.map = m_blk.get_count() * 2;
 		res.macros_buffer = m_pp.m_size;
-		res.macros_map = m_pp.m_blk.get_count() * 2;
+		res.macros_map = m_pp.get_count() * 2;
 		return res;
 	}
 };

@@ -3,6 +3,7 @@
 
 class Map
 {
+protected:
 	size_t m_size = 0;
 	size_t m_allocated = 0;
 	char *m_buffer = nullptr;
@@ -263,5 +264,27 @@ public:
 			return false;
 		v = ::load<T>(p);
 		return true;
+	}
+
+	inline bool remove(uint32_t root, const char *str)
+	{
+		char *cur = m_buffer + root;
+		while (true) {
+			cur = search_node(cur, *str++);
+			if (cur == nullptr)
+				return false;	// no node match
+			char *s;
+			if (!walk_through_node(cur, s, str))
+				return false;	// no match in inline
+			bool has_next = *s & Attr::has_next;
+			if (*str == 0) {
+				*s &= ~Attr::has_payload;
+				return true;
+			}
+			if (has_next)
+				cur = nter_next(s);
+			else	// no sub child
+				return false;
+		}
 	}
 };

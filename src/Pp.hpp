@@ -3,18 +3,17 @@
 #include "clib.hpp"
 
 #include "TokenStream.hpp"
-#include "StrMap.hpp"
+#include "Map.hpp"
 
 class Cpp;
 
-class Pp
+class Pp : private Map
 {
 	friend class Cpp;
 
 	Token::Stream m_stream;
-	StrMap::BlockGroup m_blk;
-	uint16_t m_dirs;
-	uint16_t m_keywords;
+	uint32_t m_dirs;
+	uint32_t m_keywords;
 
 	inline void error(const char *str)
 	{
@@ -137,12 +136,12 @@ class Pp
 public:
 	inline Pp(void)
 	{
-		m_dirs = m_blk.alloc();
-		m_keywords = m_blk.alloc();
-		m_macros = m_blk.alloc();
+		m_dirs = create_root();
+		m_keywords = create_root();
+		m_macros = create_root();
 
-		#define PP_DIRECTIVE_NEXT(id) m_blk.insert(m_dirs, #id, &Pp::id)
-		#define PP_DIRECTIVE_NEXT_V(name, id) m_blk.insert(m_dirs, name, &Pp::id)
+		#define PP_DIRECTIVE_NEXT(id) insert(m_dirs, #id, &Pp::id)
+		#define PP_DIRECTIVE_NEXT_V(name, id) insert(m_dirs, name, &Pp::id)
 		PP_DIRECTIVE_NEXT(include);
 		PP_DIRECTIVE_NEXT(define);
 		PP_DIRECTIVE_NEXT(undef);
@@ -158,19 +157,17 @@ public:
 		#undef PP_DIRECTIVE_NEXT
 		m_stack = m_stack_base;
 
-		alloc(pmacro_count);
 		for (size_t i = 0; i < array_size(pmacros_names); i++) {
-			auto c = m_size++;
-			m_blk.insert(m_macros, pmacros_names[i], static_cast<uint16_t>(c));
-			m_buffer[c] = c + 1;	// 0 is reserved for regular macro
+			insert(m_macros, pmacros_names[i]);
+			alloc(1);
+			store(static_cast<char>(i + 1));	// 0 is reserved for regular macro
 		}
 
 		for (size_t i = 0; i < array_size(keyword_defs); i++)
-			m_blk.insert(m_keywords, keyword_defs[i].name, keyword_defs[i].op);
+			insert(m_keywords, keyword_defs[i].name, keyword_defs[i].op);
 	}
 	inline ~Pp(void)
 	{
-		free(m_buffer);
 	}
 
 	inline Token::Stream& get_tstream(void)
@@ -279,21 +276,7 @@ private:
 		return next_token();
 	}
 
-	uint16_t m_macros;
-	char *m_buffer = nullptr;
-	size_t m_size = 0;
-	size_t m_allocated = 0;
-
-	inline void alloc(size_t size)
-	{
-		auto needed = m_size + size;
-		if (m_allocated < needed) {
-			m_allocated *= 2;
-			if (m_allocated < needed)
-				m_allocated = needed;
-			m_buffer = reinterpret_cast<char*>(realloc(m_buffer, m_allocated));
-		}
-	}
+	uint32_t m_macros;
 
 	struct TokType {	// exts
 		static inline constexpr char arg = 6;	// data: arg ndx, __VA_ARGS__ is encoded as one extra arg (ndx arg_count)
@@ -335,7 +318,7 @@ private:
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		size_t base_size = m_size;
-		bool suc_ins = m_blk.insert(m_macros, nn, static_cast<uint16_t>(m_size));
+		bool suc_ins = insert(m_macros, nn);
 		auto name_off = m_stream.get_off();
 		alloc(2);
 		m_buffer[m_size++] = 0;	// regular macro
@@ -408,9 +391,7 @@ private:
 		if (!suc_ins) {	// assert redefinition is same
 			auto size = m_size - base_size;
 			auto n = &m_buffer[m_size - size];
-			uint16_t e_ndx;
-			m_blk.resolve(m_macros, nn, e_ndx);
-			auto e = &m_buffer[e_ndx];
+			auto e = resolve(m_macros, nn);
 			for (size_t i = 0; i < size; i++)
 				if (e[i] != n[i])
 					error("Redefinition do not match");
@@ -428,7 +409,7 @@ private:
 			error("Expected token");
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
-		m_blk.remove(m_macros, nn);
+		remove(m_macros, nn);
 		if (next_token_dir(n))
 			error("Expected no further token");
 		return n;
@@ -499,7 +480,7 @@ private:
 		assert_token_type(n, Token::Type::Identifier);
 		token_nter(nn, n);
 		const char* (Pp::*dir)(void);
-		if (!m_blk.resolve(m_dirs, nn, dir))
+		if (!resolve(m_dirs, nn, dir))
 			error("Unknown directive");
 		return (this->*dir)();
 	}
@@ -527,7 +508,7 @@ private:
 			res = nullptr;
 			return true;
 		} else if (t == TokType::arg) {
-			store(entry, static_cast<uint16_t>(off + 2));
+			::store(entry, static_cast<uint16_t>(off + 2));
 			auto m = static_cast<uint8_t>(n[1]);
 			auto n = entry + 3;
 			for (uint8_t i = 0; i < m; i++) {
@@ -538,8 +519,8 @@ private:
 			if (m_stack + 5 > m_stack_base + stack_size)
 				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::arg;
-			m_stack += store(m_stack, static_cast<uint16_t>(n - m_stack_base));
-			m_stack += store(m_stack, static_cast<uint16_t>(5));
+			m_stack += ::store(m_stack, static_cast<uint16_t>(n - m_stack_base));
+			m_stack += ::store(m_stack, static_cast<uint16_t>(5));
 			return false;
 		} else if (t == TokType::opt) {
 			if (entry[2])
@@ -550,7 +531,7 @@ private:
 				for (uint8_t i = 0; i < m; i++)
 					tok_skip(n);
 			}
-			store(entry, static_cast<uint16_t>(n - m_buffer));
+			::store(entry, static_cast<uint16_t>(n - m_buffer));
 			return false;
 		} else if (t == TokType::str) {
 			res = m_stack;
@@ -560,12 +541,12 @@ private:
 			n++;
 			tok_str(n, c, m_stack_base + stack_size, entry + 2);
 			*size = c - m_stack - 2;
-			store(entry, static_cast<uint16_t>(n - m_buffer));
+			::store(entry, static_cast<uint16_t>(n - m_buffer));
 			return true;
 		} else if (t == TokType::spat) {	// hardest one, bufferize generated tokens on a separate stack then output them one by one on the lowest level
 			auto m = static_cast<uint8_t>(n[1]);
 			n += 2;
-			store(entry, static_cast<uint16_t>(n - m_buffer));
+			::store(entry, static_cast<uint16_t>(n - m_buffer));
 			char stack_base[stack_size];
 			auto stack = stack_base;
 			char *last = nullptr;
@@ -615,15 +596,15 @@ private:
 			if (m_stack + 5 + s > m_stack_base + stack_size)
 				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::arg;
-			m_stack += store(m_stack, static_cast<uint16_t>(m_stack + 2 - m_stack_base));
+			m_stack += ::store(m_stack, static_cast<uint16_t>(m_stack + 2 - m_stack_base));
 			stack = stack_base;
 			for (uint8_t i = 0; i < s; i++)
 				*m_stack++ = *stack++;
-			m_stack += store(m_stack, static_cast<uint16_t>(5 + s));
+			m_stack += ::store(m_stack, static_cast<uint16_t>(5 + s));
 			return false;
 		}
 		auto s = Token::whole_size(n);
-		store(entry, static_cast<uint16_t>(off + s));
+		::store(entry, static_cast<uint16_t>(off + s));
 		res = n;
 		return true;
 	}
@@ -650,7 +631,7 @@ private:
 			return true;
 		}
 		auto s = Token::whole_size(n);
-		store(entry, static_cast<uint16_t>(off + s));
+		::store(entry, static_cast<uint16_t>(off + s));
 		res = n;
 		return true;
 	}
@@ -781,7 +762,7 @@ private:
 			if (m_stack + 3 > m_stack_base + stack_size)
 				error("Macro stack overflow");
 			*m_stack++ = StackFrameType::end;
-			m_stack += store(m_stack, static_cast<uint16_t>(3));
+			m_stack += ::store(m_stack, static_cast<uint16_t>(3));
 		} else {
 			token_copy(nc, n);	// copy token before pushing it to stack (might be located on top)
 			n = nc;
@@ -791,7 +772,7 @@ private:
 			*m_stack++ = 0;	// is TokType::end when already substitued
 			for (uint8_t i = 0; i < sizeof(nc); i++)
 				*m_stack++ = *n++;
-			m_stack += store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
+			m_stack += ::store(m_stack, static_cast<uint16_t>(4 + sizeof(nc)));
 		}
 	}
 
@@ -1043,7 +1024,7 @@ private:
 				}
 				assert_token_type(n, Token::Type::Identifier);
 				token_nter(nn, n);
-				auto r = Val{m_blk.resolve(m_macros, nn), true};
+				auto r = Val{static_cast<bool>(resolve(m_macros, nn)), true};
 				if (has_par) {
 					if (!next_token_dir_exp_nntexp(n))
 						error("Expected )");
@@ -1142,7 +1123,7 @@ private:
 					const char* (Pp::*dir)(void);
 					{
 						token_nter(nn, n);
-						if (!m_blk.resolve(m_dirs, nn, dir))
+						if (!resolve(m_dirs, nn, dir))
 							error("Unknown directive");
 					}
 					if (dir == &Pp::ifdef || dir == &Pp::ifndef || dir == &Pp::dif)
@@ -1206,7 +1187,7 @@ private:
 		bool match;
 		{
 			token_nter(nn, n);
-			match = m_blk.resolve(m_macros, nn) ^ seek_undef;
+			match = static_cast<bool>(resolve(m_macros, nn)) ^ seek_undef;
 		}
 		if (next_token_dir(n))
 			error("Expected no further token");
@@ -1252,4 +1233,9 @@ private:
 
 public:
 	const char* next(void);
+
+	size_t get_count(void) const
+	{
+		return m_size;
+	}
 };

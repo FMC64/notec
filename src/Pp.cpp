@@ -362,8 +362,9 @@ const char* Pp::next_base(void)
 			else {	// substitution
 				if (Token::type(n) == Token::Type::Identifier) {
 					token_nter(nn, n);
-					uint16_t ndx;
-					if (m_blk.resolve(m_macros, nn, ndx)) {
+					auto mptr = resolve(m_macros, nn);
+					if (mptr) {
+						uint32_t ndx = mptr - m_buffer;
 						if (m_buffer[ndx])	// predefined macro
 							n = (this->*pmacros[m_buffer[ndx]])();
 						else {
@@ -372,9 +373,9 @@ const char* Pp::next_base(void)
 								if (m_stack + 6 > m_stack_base + stack_size)
 									error("Macro stack overflow");
 								*m_stack++ = StackFrameType::macro;
-								m_stack += store(m_stack, static_cast<uint16_t>(ndx + 1));
+								m_stack += ::store(m_stack, static_cast<uint16_t>(ndx + 1));
 								m_stack++;	// undef, will not have any opt
-								m_stack += store(m_stack, static_cast<uint16_t>(6));
+								m_stack += ::store(m_stack, static_cast<uint16_t>(6));
 								goto pushed;
 							} else {
 								auto size = Token::whole_size(n);
@@ -386,7 +387,7 @@ const char* Pp::next_base(void)
 									char stack_base[stack_size];	// dedicated stack for macro invocation, not to mess up actual stack with in-building call
 									char *stack = stack_base;
 									*stack++ = StackFrameType::macro;
-									stack += store(stack, static_cast<uint16_t>(ndx + 1));	// first token is right after arg count
+									stack += ::store(stack, static_cast<uint16_t>(ndx + 1));	// first token is right after arg count
 									auto va_any = stack++;
 									auto has_va = static_cast<bool>(m_buffer[ndx] & 0x80);
 									auto acount = static_cast<uint8_t>(m_buffer[ndx] & ~0x80);
@@ -444,7 +445,7 @@ const char* Pp::next_base(void)
 											error("Wrong macro argument count");
 									if (stack + 2 > stack_base + stack_size)
 										error("Macro stack overflow");
-									stack += store(stack, static_cast<uint16_t>(stack - stack_base + 2));
+									stack += ::store(stack, static_cast<uint16_t>(stack - stack_base + 2));
 									auto ssize = static_cast<size_t>(stack - stack_base);
 									if (m_stack + ssize > m_stack_base + stack_size)
 										error("Macro stack overflow");
@@ -505,7 +506,7 @@ const char* Pp::next(void)
 		} else if (t == Token::Type::Identifier) {
 			Token::Op op;
 			token_nter(nn, n);
-			if (m_blk.resolve(m_keywords, nn, op)) {
+			if (resolve(m_keywords, nn, op)) {
 				*m_stack = static_cast<char>(Token::Type::Operator);
 				m_stack[1] = static_cast<uint8_t>(op);
 				return m_stack;
