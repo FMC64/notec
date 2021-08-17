@@ -182,14 +182,16 @@ public:
 					s++;
 				uint32_t nter = s - m_buffer;
 				if (dirp) {
+					uint32_t ilast = last - m_buffer;
+					auto base = m_size;
 					alloc(3);
 					store_part<3>(static_cast<uint32_t>(0));
 					char ow_ptr[3];
 					copy_node(mid_nter, nter, m_buffer[nter], false, ow_ptr);
-					auto n = copy_node(node, mid_nter, 0, false, last);
+					auto n = copy_node(node, mid_nter, 0, false, m_buffer + ilast);
 					*n |= Attr::has_next | Attr::has_payload;
-					for (size_t i = 0; i < 3; i++)
-						m_buffer[m_size++] = ow_ptr[i];
+					alloc(3);
+					store_part<3>(static_cast<uint32_t>(base));
 				} else {
 					auto n = copy_node(node, mid_nter, 0, false, last);
 					*n |= Attr::has_next;
