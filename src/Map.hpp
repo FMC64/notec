@@ -119,7 +119,7 @@ private:
 	}
 
 	static inline constexpr size_t base_recycl = 5;
-	static inline constexpr size_t top_recycl = 16;
+	static inline constexpr size_t top_recycl = 20;
 	static inline constexpr size_t recycl_size = top_recycl - base_recycl;
 	uint32_t m_recycl[recycl_size] = {};
 
@@ -137,7 +137,7 @@ private:
 			c = m_recycl + (size - base_recycl);
 		else
 			c = m_recycl + (recycl_size - 1);
-		while (true) {
+		for (size_t i = 0; i < 6; i++) {
 			if (*c == 0) {
 				*c = node;
 				break;
@@ -151,7 +151,7 @@ private:
 	inline char* copy_node_alloc_recycl(size_t size)
 	{
 		auto c = m_recycl + (size - base_recycl);
-		while (c < m_recycl + recycl_size) {
+		for (size_t i = 0; (c < m_recycl + recycl_size) && i < 6; i++) {
 			if (*c) {
 				auto r = m_buffer + *c;
 				*c = 0;
