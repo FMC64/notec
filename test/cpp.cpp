@@ -382,6 +382,9 @@ enum en : const char {
 	RESOLVE(0, C);
 	{
 		RESOLVE(enb, C);
+		test_assert(b[C++] == static_cast<char>(Cpp::ContType::Value));
+		test_assert(b[C++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+		test_assert(b[C++] == 2);
 	}
 }
 
@@ -420,5 +423,10 @@ enum class en : const unsigned short {
 	MUST_NOT_RESOLVE(0, C);
 	{
 		RESOLVE(enb, C);
+		test_assert(b[C++] == static_cast<char>(Cpp::ContType::Value));
+		test_assert(b[C++] == static_cast<char>(Type::Prim::Enum));
+		test_assert(load_part<3, uint32_t>(b + C) == enb);
+		C += 3;
+		test_assert(load<uint16_t>(b + C) == 2);
 	}
 }

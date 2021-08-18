@@ -440,7 +440,7 @@ private:
 				error("Expected enum definition");
 		}
 		auto t_size = integer_size(t);
-		char tv = is_class ? (t & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Enum) : t;
+		char tv = is_class ? static_cast<char>(Type::Prim::Enum) : t;
 		if (Token::type(n) == Token::Type::Operator) {
 			auto o = Token::op(n);
 			if (o == Token::Op::LBra) {	// define
@@ -495,6 +495,7 @@ private:
 						store(tv);
 						if (is_class)
 							store_part<3>(m_cur);
+						m_size += ::store_part(m_buffer + m_size, t_size, c);
 					};
 
 					cont_insert(m_cur, nn);
