@@ -17,7 +17,7 @@ static Cpp init_file(const char *src)
 	return res;
 }
 
-static inline constexpr size_t base = 6;
+static inline constexpr size_t base = 8;
 
 #define RESOLVE(cont, name) uint32_t name; test_assert(c.cont_resolve(cont, #name, name));
 #define MUST_NOT_RESOLVE(cont, name) uint32_t name; test_assert(!c.cont_resolve(cont, #name, name));
@@ -59,8 +59,7 @@ test_case(cpp_2)
 	test_assert(S_anon == base);	// make sure struct goes before type
 
 	test_assert(b[S_anon++] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + S_anon));
-	S_anon += 2;
+	S_anon += 4;
 	test_assert(load_part<3, uint32_t>(b + S_anon) == 0);	// struct belongs to main scope
 }
 
@@ -70,16 +69,16 @@ test_case(cpp_3)
 	c.run();
 	auto b = c.get_buffer();
 	RESOLVE(0, S_t);
+	auto S_tb = S_t;
 	test_assert(b[S_t++] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + S_t));
-	S_t += 2;
+	S_t += 4;
 	test_assert(load_part<3, uint32_t>(b + S_t) == 0);
 
 	RESOLVE(0, S);
 	test_assert(b[S++] == static_cast<char>(Cpp::ContType::Using));
 	test_assert(b[S++] == static_cast<char>(Type::Prim::Ptr));
 	test_assert(b[S++] == (Type::const_flag | static_cast<char>(Type::Prim::Struct)));
-	test_assert(load_part<3, uint32_t>(b + S) == base);
+	test_assert(load_part<3, uint32_t>(b + S) == S_tb);
 }
 
 test_case(cpp_4)
@@ -98,21 +97,20 @@ typedef struct{} bs;
 	c.run();
 	auto b = c.get_buffer();
 	RESOLVE(0, ns);
+	auto nsb = ns;
 	RESOLVE(ns, a);
 	test_assert(b[ns++] == static_cast<char>(Cpp::ContType::Namespace));
-	test_assert(load<uint16_t>(b + ns));
-	ns += 2;
+	ns += 4;
 	test_assert(load_part<3, uint32_t>(b + ns) == 0);
 
 	test_assert(b[a++] == static_cast<char>(Cpp::ContType::Using));
 	test_assert(b[a++] == static_cast<char>(Type::Prim::Struct));
 	auto a_anon = load_part<3, uint32_t>(b + a);
-	test_assert(a_anon == base + 6);
+	//test_assert(a_anon == base + 6);
 
 	test_assert(b[a_anon++] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + a_anon));
-	a_anon += 2;
-	test_assert(load_part<3, uint32_t>(b + a_anon) == base);	// parent must be namespace
+	a_anon += 4;
+	test_assert(load_part<3, uint32_t>(b + a_anon) == nsb);	// parent must be namespace
 
 	RESOLVE(0, bs);
 	test_assert(b[bs++] == static_cast<char>(Cpp::ContType::Using));
@@ -120,8 +118,7 @@ typedef struct{} bs;
 	auto bs_anon = load_part<3, uint32_t>(b + bs);
 
 	test_assert(b[bs_anon++] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + bs_anon));
-	bs_anon += 2;
+	bs_anon += 4;
 	test_assert(load_part<3, uint32_t>(b + bs_anon) == 0);
 }
 
@@ -148,9 +145,8 @@ public:
 	auto b = c.get_buffer();
 	RESOLVE(0, S);
 	auto Sb = S;
-	test_assert(b[S] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + S));
-	S += 2;
+	test_assert(b[S++] == static_cast<char>(Cpp::ContType::Struct));
+	S += 4;
 	test_assert(load_part<3, uint32_t>(b + S) == 0);
 
 	{
@@ -170,9 +166,8 @@ public:
 		test_assert(b[Ssub++] == static_cast<char>(Type::Visib::Public));
 		auto Ssubb = Ssub;
 		test_assert(b[Ssub++] == static_cast<char>(Cpp::ContType::Struct));
-		test_assert(load<uint16_t>(b + Ssub));
-		Ssub += 2;
-		test_assert(load_part<3, uint32_t>(b + Ssub) == base);
+		Ssub += 4;
+		test_assert(load_part<3, uint32_t>(b + Ssub) == Sb);
 
 		{
 			RESOLVE(Ssubb, cs);
@@ -198,8 +193,9 @@ extern int var;
 );
 	c.run();
 	auto b = c.get_buffer();
-	test_assert(b[base] == static_cast<char>(Type::Storage::Extern));
-	test_assert(b[base + 1] == static_cast<char>(Type::Prim::S32));
+	RESOLVE(0, var);
+	test_assert(b[var++] == static_cast<char>(Type::Storage::Extern));
+	test_assert(b[var++] == static_cast<char>(Type::Prim::S32));
 }
 
 test_case(cpp_7)
@@ -225,8 +221,7 @@ typedef struct aabb2_s{
 	RESOLVE(0, vec2_s);
 	auto vec2b = vec2_s;
 	test_assert(b[vec2_s++] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + vec2_s));
-	vec2_s += 2;
+	vec2_s += 4;
 	test_assert(load_part<3, uint32_t>(b + vec2_s) == 0);
 
 	RESOLVE(0, vec2);
@@ -250,8 +245,7 @@ typedef struct aabb2_s{
 	RESOLVE(0, aabb2_s);
 	auto aabb2 = aabb2_s;
 	test_assert(b[aabb2_s++] == static_cast<char>(Cpp::ContType::Struct));
-	test_assert(load<uint16_t>(b + aabb2_s));
-	aabb2_s += 2;
+	aabb2_s += 4;
 	test_assert(load_part<3, uint32_t>(b + aabb2_s) == 0);
 
 	{
@@ -371,8 +365,7 @@ enum en : const char {
 	RESOLVE(0, en);
 	auto enb = en;
 	test_assert(b[en++] == static_cast<char>(Cpp::ContType::Enum));
-	test_assert(load<uint16_t>(b + en));
-	en += 2;
+	en += 4;
 	test_assert(load_part<3, uint32_t>(b + en) == 0);
 	en += 3;
 	test_assert(b[en++] == false);
@@ -410,8 +403,7 @@ enum class en : const unsigned short {
 	RESOLVE(0, en);
 	auto enb = en;
 	test_assert(b[en++] == static_cast<char>(Cpp::ContType::Enum));
-	test_assert(load<uint16_t>(b + en));
-	en += 2;
+	en += 4;
 	test_assert(load_part<3, uint32_t>(b + en) == 0);
 	en += 3;
 	test_assert(b[en++] == true);

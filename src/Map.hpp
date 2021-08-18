@@ -1,3 +1,5 @@
+#pragma once
+
 #include "clib.hpp"
 #include "arith.hpp"
 

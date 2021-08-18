@@ -3,7 +3,7 @@
 #include "cint.hpp"
 #include "Token.hpp"
 #include "File.hpp"
-#include "StrMap.hpp"
+#include "Map.hpp"
 #include <fxlib.h>
 
 static inline void tactical_exit(const char *msg, int code, bool stuck = true)
@@ -47,8 +47,8 @@ static inline void tactical_exit(const char *msg, int code, bool stuck = true)
 class Stream
 {
 	int m_handle;
-	StrMap::BlockGroup m_blk;
-	uint16_t m_ponce;
+	Map m_blk;
+	uint32_t m_ponce;
 	static inline constexpr size_t include_dirs_size = 128;
 	char m_include_dirs_base[include_dirs_size];
 	char *m_include_dirs;
@@ -56,7 +56,7 @@ class Stream
 public:
 	Stream(void)
 	{
-		m_ponce = m_blk.alloc();
+		m_ponce = m_blk.create_root();
 		m_include_dirs = m_include_dirs_base;
 	}
 
