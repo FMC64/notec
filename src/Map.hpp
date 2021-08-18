@@ -118,6 +118,50 @@ private:
 		return m_buffer + res;
 	}
 
+	static inline constexpr size_t base_recycl = 5;
+	static inline constexpr size_t top_recycl = 16;
+	static inline constexpr size_t recycl_size = top_recycl - base_recycl;
+	uint32_t m_recycl[recycl_size] = {};
+
+	static inline uint32_t node_size(const char *node, const char *nter)
+	{
+		auto has_next = *nter & Attr::has_next;
+		return nter - node + 1 + (has_next ? 3 : 0);
+	}
+
+	inline void add_recycl(uint32_t node, uint32_t node_nter)
+	{
+		auto size = node_size(m_buffer + node, m_buffer + node_nter);
+		uint32_t *c;
+		if (size < top_recycl)
+			c = m_recycl + (size - base_recycl);
+		else
+			c = m_recycl + (recycl_size - 1);
+		while (true) {
+			if (*c == 0) {
+				*c = node;
+				break;
+			}
+			if (c == m_recycl)
+				break;
+			c--;
+		}
+	}
+
+	inline char* copy_node_alloc_recycl(size_t size)
+	{
+		auto c = m_recycl + (size - base_recycl);
+		while (c < m_recycl + recycl_size) {
+			if (*c) {
+				auto r = m_buffer + *c;
+				*c = 0;
+				return r;
+			}
+			c++;
+		}
+		return copy_node_alloc(size);
+	}
+
 	// implicit copy to end, referencing node payload if any
 	// ow_ptr contains index to node, will be replaced with index to copy
 	// returns ptr to copy nter
@@ -145,7 +189,6 @@ private:
 		{
 			if (hasp)
 				*res |= Attr::has_payload | Attr::payload_ind;
-			//uint32_t esize = (force_next_at_end ? 3 : 0) + (hasp ? 3 : 0);
 			if (force_next_at_end)
 				dst += ::store_part<3>(dst, m_size);
 			if (hasp)
@@ -199,7 +242,7 @@ public:
 					uint32_t base;
 					{
 						auto size = copy_node_size(mid_nter, nter, m_buffer[nter], false);
-						auto blk = copy_node_alloc(size + 3);
+						auto blk = copy_node_alloc_recycl(size + 3);
 						base = blk - m_buffer;
 						blk += ::store_part<3>(blk, static_cast<uint32_t>(0));
 						copy_node(blk, mid_nter, nter, m_buffer[nter], false);
@@ -216,7 +259,7 @@ public:
 					{
 						uint32_t ilast = last - m_buffer;
 						auto size = copy_node_size(node, mid_nter, 0, false);
-						auto blk = copy_node_alloc(size + 3);
+						auto blk = copy_node_alloc_recycl(size + 3);
 						::store_part<3>(m_buffer + ilast, static_cast<uint32_t>(blk - m_buffer));
 						auto n = copy_node(blk, node, mid_nter, 0, false);
 						*n |= Attr::has_next;
@@ -232,6 +275,7 @@ public:
 					::store_part<3>(m_buffer + fptr, static_cast<uint32_t>(m_size));
 					insert_str_payload_node(str);
 				}
+				add_recycl(node, nter);
 				return true;
 			}
 			bool has_next = *s & Attr::has_next;
@@ -242,6 +286,7 @@ public:
 				::store_part<3>(last, static_cast<uint32_t>(m_size));
 				uint32_t node = cur - m_buffer;
 				uint32_t nter = s - m_buffer;
+				add_recycl(node, nter);
 				auto size = copy_node_size(node, nter, m_buffer[nter], false);
 				auto blk = copy_node_alloc(size);
 				*copy_node(blk, node, nter, m_buffer[nter], false) |= Attr::has_payload;
@@ -254,6 +299,7 @@ public:
 				::store_part<3>(last, static_cast<uint32_t>(m_size));
 				uint32_t node = cur - m_buffer;
 				uint32_t nter = s - m_buffer;
+				add_recycl(node, nter);
 				auto size = copy_node_size(node, nter, m_buffer[nter], true);
 				auto blk = copy_node_alloc(size);
 				copy_node(blk, node, nter, m_buffer[nter], true);
