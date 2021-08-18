@@ -196,40 +196,37 @@ public:
 				uint32_t nter = s - m_buffer;
 				if (dirp) {
 					uint32_t ilast = last - m_buffer;
-					auto base = m_size;
-					alloc(3);
-					store_part<3>(static_cast<uint32_t>(0));
+					uint32_t base;
 					{
 						auto size = copy_node_size(mid_nter, nter, m_buffer[nter], false);
-						auto blk = copy_node_alloc(size);
+						auto blk = copy_node_alloc(size + 3);
+						base = blk - m_buffer;
+						blk += ::store_part<3>(blk, static_cast<uint32_t>(0));
 						copy_node(blk, mid_nter, nter, m_buffer[nter], false);
 					}
-					char *n;
 					{
 						::store_part<3>(m_buffer + ilast, static_cast<uint32_t>(m_size));
 						auto size = copy_node_size(node, mid_nter, 0, false);
-						auto blk = copy_node_alloc(size);
-						n = copy_node(blk, node, mid_nter, 0, false);
+						auto blk = copy_node_alloc(size + 3);
+						auto n = copy_node(blk, node, mid_nter, 0, false);
+						*n |= Attr::has_next | Attr::has_payload;
+						::store_part<3>(n + 1, static_cast<uint32_t>(base));
 					}
-					*n |= Attr::has_next | Attr::has_payload;
-					alloc(3);
-					store_part<3>(static_cast<uint32_t>(base));
 				} else {
-					char *n;
 					{
-						::store_part<3>(last, static_cast<uint32_t>(m_size));
+						uint32_t ilast = last - m_buffer;
 						auto size = copy_node_size(node, mid_nter, 0, false);
-						auto blk = copy_node_alloc(size);
-						n = copy_node(blk, node, mid_nter, 0, false);
+						auto blk = copy_node_alloc(size + 3);
+						::store_part<3>(m_buffer + ilast, static_cast<uint32_t>(blk - m_buffer));
+						auto n = copy_node(blk, node, mid_nter, 0, false);
+						*n |= Attr::has_next;
+						::store_part<3>(n + 1, static_cast<uint32_t>(m_size));
 					}
-					*n |= Attr::has_next;
-					alloc(6);
-					store_part<3>(static_cast<uint32_t>(m_size + 3));
 					auto fptr = m_size;
-					m_size += 3;
 					{
 						auto size = copy_node_size(mid_nter, nter, m_buffer[nter], false);
-						auto blk = copy_node_alloc(size);
+						auto blk = copy_node_alloc(size + 3);
+						blk += 3;
 						copy_node(blk, mid_nter, nter, m_buffer[nter], false);
 					}
 					::store_part<3>(m_buffer + fptr, static_cast<uint32_t>(m_size));
