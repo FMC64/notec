@@ -501,16 +501,16 @@ private:
 
 	inline bool macro(char *entry, const char *&res)
 	{
-		auto off = load<uint16_t>(entry);
+		auto off = load_part<3, uint32_t>(entry);
 		const char *n = m_buffer + off;
 		auto t = *n;
 		if (t == TokType::end) {
 			res = nullptr;
 			return true;
 		} else if (t == TokType::arg) {
-			::store(entry, static_cast<uint16_t>(off + 2));
+			::store_part<3>(entry, static_cast<uint32_t>(off + 2));
 			auto m = static_cast<uint8_t>(n[1]);
-			auto n = entry + 3;
+			auto n = entry + 4;
 			for (uint8_t i = 0; i < m; i++) {
 				while (*n != TokType::end)
 					n += Token::whole_size(n);
@@ -523,7 +523,7 @@ private:
 			m_stack += ::store(m_stack, static_cast<uint16_t>(5));
 			return false;
 		} else if (t == TokType::opt) {
-			if (entry[2])
+			if (entry[3])
 				n += 2;
 			else {
 				auto m = static_cast<uint8_t>(n[1]);
@@ -531,7 +531,7 @@ private:
 				for (uint8_t i = 0; i < m; i++)
 					tok_skip(n);
 			}
-			::store(entry, static_cast<uint16_t>(n - m_buffer));
+			::store_part<3>(entry, static_cast<uint32_t>(n - m_buffer));
 			return false;
 		} else if (t == TokType::str) {
 			res = m_stack;
@@ -539,14 +539,14 @@ private:
 			*c++ = static_cast<char>(Token::Type::StringLiteral);
 			auto size = reinterpret_cast<uint8_t*>(c++);
 			n++;
-			tok_str(n, c, m_stack_base + stack_size, entry + 2);
+			tok_str(n, c, m_stack_base + stack_size, entry + 3);
 			*size = c - m_stack - 2;
-			::store(entry, static_cast<uint16_t>(n - m_buffer));
+			::store_part<3>(entry, static_cast<uint32_t>(n - m_buffer));
 			return true;
 		} else if (t == TokType::spat) {	// hardest one, bufferize generated tokens on a separate stack then output them one by one on the lowest level
 			auto m = static_cast<uint8_t>(n[1]);
 			n += 2;
-			::store(entry, static_cast<uint16_t>(n - m_buffer));
+			::store_part<3>(entry, static_cast<uint32_t>(n - m_buffer));
 			char stack_base[stack_size];
 			auto stack = stack_base;
 			char *last = nullptr;
@@ -584,7 +584,7 @@ private:
 						}
 					}
 					if (m_stack == base)	// do not signal current token while upper macro stack has not been consumed
-						if (m_buffer + load<uint16_t>(entry) >= next)	// next spat token reached
+						if (m_buffer + load_part<3, uint32_t>(entry) >= next)	// next spat token reached
 							break;
 				}
 				can_spat = true;
@@ -604,7 +604,7 @@ private:
 			return false;
 		}
 		auto s = Token::whole_size(n);
-		::store(entry, static_cast<uint16_t>(off + s));
+		::store_part<3>(entry, static_cast<uint32_t>(off + s));
 		res = n;
 		return true;
 	}
