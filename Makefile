@@ -10,9 +10,9 @@ OUT_ELF = $(OUT).elf
 OUT_BIN = $(OUT).bin
 OUT_G1A = $(OUT).g1a
 
-COMMON_SRC = $(wildcard src/*.cpp)
+COMMON_SRC = $(filter-out src/StrMap.cpp, $(wildcard src/*.cpp))
 OUT_SRC = $(wildcard src/crs/*.cpp)
-TEST_SRC = $(wildcard test/*.cpp)
+TEST_SRC = $(wildcard test/*.cpp) src/StrMap.cpp
 TEST_STL_SRC = $(wildcard test/stl/*.cpp)
 
 COMMON_OBJ = $(COMMON_SRC:.cpp=.o)
