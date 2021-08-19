@@ -439,3 +439,15 @@ enum class en : const unsigned short {
 		test_assert(load<uint16_t>(b + C) == 2);
 	}
 }
+
+test_case(cpp_13)
+{
+	auto c = init_file("using n = const char *&;;;");
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, n);
+	test_assert(b[n++] == static_cast<char>(Cpp::ContType::Using));
+	test_assert(b[n++] == static_cast<char>(Type::Prim::Lref));
+	test_assert(b[n++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[n++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+}

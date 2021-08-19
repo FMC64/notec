@@ -793,6 +793,8 @@ private:
 					error("Unknown language linkage");
 				} else
 					return parse_memb(n, base_off, static_cast<char>(Type::Storage::Extern));
+			} else if (o == Token::Op::Semicolon) {
+				return;
 			} else if (o == Token::Op::Typedef) {
 				n = next_exp();
 				alloc(1);
@@ -808,6 +810,33 @@ private:
 					m_size = t;
 					cont_insert(m_cur, id);
 					alloc(t_size);
+					for (size_t i = 0; i < t_size; i++)
+						store(t_data[i]);
+				}
+				if (!Token::is_op(n, Token::Op::Semicolon))
+					error("Expected ';'");
+				return;
+			} else if (o == Token::Op::Using) {
+				n = next_exp();
+				if (Token::type(n) != Token::Type::Identifier)
+					error("Expected identifier");
+				token_nter(nn, n);
+				n = next_exp();
+				if (!Token::is_op(n, Token::Op::Equal))
+					error("Expected '='");
+				n = next_exp();
+				char id[256];
+				uint32_t t;
+				n = parse_type(n, id, t);
+				{
+					size_t t_size = m_size - t;
+					char t_data[t_size];
+					for (size_t i = 0; i < t_size; i++)
+						t_data[i] = m_buffer[t + i];
+					m_size = t;
+					cont_insert(m_cur, nn);
+					alloc(1 + t_size);
+					store(ContType::Using);
 					for (size_t i = 0; i < t_size; i++)
 						store(t_data[i]);
 				}
