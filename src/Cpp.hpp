@@ -650,7 +650,7 @@ private:
 					} else if (t == ContType::Enum) {
 						t_type = ContType::Enum;
 						t_ndx = res;
-						type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::S32);
+						type = (attrs & TypeAttr::cv_mask) | static_cast<char>(Type::Prim::Enum);
 					} else
 						error("Bad type reference");
 				} else {

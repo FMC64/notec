@@ -56,7 +56,7 @@ int main(void)
 			locate(1, 1);
 			Print(reinterpret_cast<const uint8_t*>(buf));
 			locate(1 + car, 2);
-			Print(reinterpret_cast<const uint8_t*>("^"));
+			Print(reinterpret_cast<const uint8_t*>("<"));
 		}
 		locate(1, 3);
 		if (err[0] <= Token::type_range) {
