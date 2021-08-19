@@ -58,7 +58,8 @@ public:
 		Struct,
 
 		Using,	// then type
-		Value	// then type and the value
+		Value,	// then type, then value
+		Member	// then storage, type and value (opt)
 	};
 
 	inline ContType cont_type(uint32_t cont) const
@@ -743,13 +744,14 @@ private:
 	inline void parse_memb(const char *n, uint32_t base_off, uint8_t sto = 0)
 	{
 		n = acc_storage(n, sto);
-		alloc(1);
+		alloc(2);
+		store(ContType::Member);
 		store(sto);
 		uint32_t t;
 		char id[256];
-		n = parse_type(n, id, t, base_off + 1);
+		n = parse_type(n, id, t, base_off + 2);
 		if (*id == 0) {
-			auto b = m_buffer[t + base_off + 1];
+			auto b = m_buffer[t + base_off + 2];
 			auto p = Type::prim(b);
 			if (Token::is_op(n, Token::Op::Semicolon)) {
 				if (p != Type::Prim::Struct && p != Type::Prim::Enum)

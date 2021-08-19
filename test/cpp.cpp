@@ -152,12 +152,14 @@ public:
 	{
 		RESOLVE(Sb, a);
 		test_assert(b[a++] == static_cast<char>(Type::Visib::Public));
+		test_assert(b[a++] == static_cast<char>(Cpp::ContType::Member));
 		test_assert(b[a++] == 0);
 		test_assert(b[a++] == static_cast<char>(Type::Prim::S32));
 	}
 	{
 		RESOLVE(Sb, bf);
 		test_assert(b[bf++] == static_cast<char>(Type::Visib::Private));
+		test_assert(b[bf++] == static_cast<char>(Cpp::ContType::Member));
 		test_assert(b[bf++] == (Type::inline_flag | static_cast<char>(Type::Storage::Static)));
 		test_assert(b[bf++] == static_cast<char>(Type::Prim::FP32));
 	}
@@ -172,6 +174,7 @@ public:
 		{
 			RESOLVE(Ssubb, cs);
 			test_assert(b[cs++] == static_cast<char>(Type::Visib::Protected));
+			test_assert(b[cs++] == static_cast<char>(Cpp::ContType::Member));
 			test_assert(b[cs++] == 0);
 			test_assert(b[cs++] == static_cast<char>(Type::Prim::S8));
 		}
@@ -194,6 +197,7 @@ extern int var;
 	c.run();
 	auto b = c.get_buffer();
 	RESOLVE(0, var);
+	test_assert(b[var++] == static_cast<char>(Cpp::ContType::Member));
 	test_assert(b[var++] == static_cast<char>(Type::Storage::Extern));
 	test_assert(b[var++] == static_cast<char>(Type::Prim::S32));
 }
@@ -232,12 +236,14 @@ typedef struct aabb2_s{
 	{
 		RESOLVE(vec2b, x);
 		test_assert(b[x++] == static_cast<char>(Type::Visib::Public));
+		test_assert(b[x++] == static_cast<char>(Cpp::ContType::Member));
 		test_assert(b[x++] == 0);
 		test_assert(b[x++] == static_cast<char>(Type::Prim::S32));
 	}
 	{
 		RESOLVE(vec2b, y);
 		test_assert(b[y++] == static_cast<char>(Type::Visib::Public));
+		test_assert(b[y++] == static_cast<char>(Cpp::ContType::Member));
 		test_assert(b[y++] == 0);
 		test_assert(b[y++] == static_cast<char>(Type::Prim::S32));
 	}
@@ -251,6 +257,7 @@ typedef struct aabb2_s{
 	{
 		RESOLVE(aabb2, pos);
 		test_assert(b[pos++] == static_cast<char>(Type::Visib::Public));
+		test_assert(b[pos++] == static_cast<char>(Cpp::ContType::Member));
 		test_assert(b[pos++] == 0);
 		test_assert(b[pos++] == static_cast<char>(Type::Prim::Struct));
 		test_assert(load_part<3, uint32_t>(b + pos) == vec2b);
@@ -258,6 +265,7 @@ typedef struct aabb2_s{
 	{
 		RESOLVE(aabb2, size);
 		test_assert(b[size++] == static_cast<char>(Type::Visib::Public));
+		test_assert(b[size++] == static_cast<char>(Cpp::ContType::Member));
 		test_assert(b[size++] == 0);
 		test_assert(b[size++] == static_cast<char>(Type::Prim::Struct));
 		test_assert(load_part<3, uint32_t>(b + size) == vec2b);
@@ -343,6 +351,7 @@ namespace nsb {
 	test_assert(b[A] == static_cast<char>(Cpp::ContType::Struct));
 	RESOLVE(A, bi);
 	test_assert(b[bi++] == static_cast<char>(Type::Visib::Public));
+	test_assert(b[bi++] == static_cast<char>(Cpp::ContType::Member));
 	test_assert(b[bi++] == 0);
 	test_assert(b[bi++] == static_cast<char>(Type::Prim::S16));
 }
