@@ -19,8 +19,8 @@ static Cpp init_file(const char *src)
 
 static inline constexpr size_t base = 8;
 
-#define RESOLVE(cont, name) uint32_t name; test_assert(c.cont_resolve(cont, #name, name));
-#define MUST_NOT_RESOLVE(cont, name) uint32_t name; test_assert(!c.cont_resolve(cont, #name, name));
+#define RESOLVE(cont, name) uint32_t name; test_assert(c.cont_resolve(cont, #name, name, true));
+#define MUST_NOT_RESOLVE(cont, name) uint32_t name; test_assert(!c.cont_resolve(cont, #name, name, true));
 
 test_case(cpp_0)
 {
@@ -450,4 +450,46 @@ test_case(cpp_13)
 	test_assert(b[n++] == static_cast<char>(Type::Prim::Lref));
 	test_assert(b[n++] == static_cast<char>(Type::Prim::Ptr));
 	test_assert(b[n++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+}
+
+test_case(cpp_14)
+{
+	auto c = init_file(
+R"raw(
+
+void* proc(void);
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, proc);
+	test_assert(b[proc++] == static_cast<char>(Cpp::ContType::Member));
+	test_assert(b[proc++] == 0);
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Function));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Void));
+	test_assert(b[proc++] == static_cast<uint8_t>(0));
+}
+
+test_case(cpp_15)
+{
+	auto c = init_file(
+R"raw(
+
+void* proc(int a, float);
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, proc);
+	test_assert(b[proc++] == static_cast<char>(Cpp::ContType::Member));
+	test_assert(b[proc++] == 0);
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Function));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Void));
+	test_assert(b[proc++] == static_cast<uint8_t>(2));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::S32));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::FP32));
 }

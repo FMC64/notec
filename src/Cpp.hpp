@@ -103,14 +103,14 @@ public:
 	}
 
 	// name is null terminated
-	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res, bool skip_overhead = false)
+	inline bool cont_resolve(uint32_t cont, const char *name, uint32_t &res, bool dont_skip_overhead = false)
 	{
 		auto m = assert_cont_map(cont);
 		auto d = resolve(m, name);
 		if (d == nullptr)
 			return false;
 		res = d - m_buffer;
-		if (skip_overhead)
+		if (!dont_skip_overhead)
 			res = cont_skip_overhead(cont, res);
 		return true;
 	}
@@ -125,10 +125,10 @@ private:
 	}*/
 
 	// name is null terminated
-	inline bool cont_resolve_rev(uint32_t cont, const char *name, uint32_t &res, bool skip_overhead = false)
+	inline bool cont_resolve_rev(uint32_t cont, const char *name, uint32_t &res)
 	{
 		while (true) {
-			if (cont_resolve(cont, name, res, skip_overhead))
+			if (cont_resolve(cont, name, res))
 				return true;
 			if (cont == 0)
 				return false;
@@ -137,11 +137,11 @@ private:
 	}
 
 	// name is null terminated
-	inline bool cont_resolve_rev(const char *name, uint32_t &res, bool skip_overhead = false)
+	inline bool cont_resolve_rev(const char *name, uint32_t &res)
 	{
-		if (cont_resolve_rev(m_cur, name, res, skip_overhead))
+		if (cont_resolve_rev(m_cur, name, res))
 			return true;
-		else if (m_cur_alt != 0 && cont_resolve_rev(m_cur_alt, name, res, skip_overhead))
+		else if (m_cur_alt != 0 && cont_resolve_rev(m_cur_alt, name, res))
 			return true;
 		else
 			return false;
@@ -157,11 +157,11 @@ private:
 	// id should be at least 256 bytes long
 	// res is nullptr if id
 	// id size is 0 if nothing
-	inline const char* res_or_id(const char *n, uint32_t &res, char *id, bool skip_overhead = false)
+	inline const char* res_or_id(const char *n, uint32_t &res, char *id)
 	{
 		if (Token::type(n) == Token::Type::Identifier) {
 			Token::fill_nter(id, n);
-			if (cont_resolve_rev(id, res, skip_overhead))
+			if (cont_resolve_rev(id, res))
 				*id = 0;
 			else
 				res = 0;
@@ -183,7 +183,7 @@ private:
 			if (Token::type(n) != Token::Type::Identifier)
 				error("Must have identifier");
 			Token::fill_nter(id, n);
-			if (!cont_resolve(res, id, res, skip_overhead))
+			if (!cont_resolve(res, id, res))
 				error("No such member");
 			n = next_exp();
 			if (!Token::is_op(n, Token::Op::Scope))
@@ -315,7 +315,7 @@ private:
 		char cur_type[cur_type_size];
 		for (size_t i = 0; i < cur_type_size; i++)
 			cur_type[i] = m_buffer[m_building_type_base + i];
-		n = res_or_id(n, res, id, true);
+		n = res_or_id(n, res, id);
 		if (Token::type(n) == Token::Type::Operator) {
 			auto o = Token::op(n);
 			if (o == Token::Op::LBra) {	// define
@@ -432,7 +432,7 @@ private:
 		char cur_type[cur_type_size];
 		for (size_t i = 0; i < cur_type_size; i++)
 			cur_type[i] = m_buffer[m_building_type_base + i];
-		n = res_or_id(n, res, id, true);
+		n = res_or_id(n, res, id);
 		char t = static_cast<char>(Type::Prim::S32);
 		if (Token::is_op(n, Token::Op::Colon)) {
 			n = next_exp();
@@ -634,7 +634,7 @@ private:
 			} else {
 				uint32_t res;
 				char id[256];
-				n = res_or_id(n, res, id, true);
+				n = res_or_id(n, res, id);
 				n = acc_type_attrs(n, attrs);
 				if (res) {
 					auto t = cont_type(res);
@@ -750,6 +750,13 @@ private:
 		uint32_t t;
 		char id[256];
 		n = parse_type(n, id, t, base_off + 2);
+
+		size_t t_size = m_size - t;
+		char t_data[t_size];
+		for (size_t i = 0; i < t_size; i++)
+			t_data[i] = m_buffer[t + i];
+		m_size = t;
+
 		if (*id == 0) {
 			auto b = m_buffer[t + base_off + 2];
 			auto p = Type::prim(b);
@@ -761,18 +768,75 @@ private:
 				m_size = t;	// remove in-building type
 				return;
 			}
-			if (Token::type(n) != Token::Type::Identifier)
-				error("Expected identifier");
-			Token::fill_nter(id, n);
-			n = next_exp();
+			uint32_t res;
+			n = res_or_id(n, res, id);
+			if (res) {
+				error("Not implemented");
+			} else if (*id) {
+				if (Token::is_op(n, Token::Op::LPar)) {
+					n = next_exp();
+
+					uint32_t base = m_size;
+					alloc(t_size + 2);
+					for (size_t i = 0; i < base_off + 2; i++)
+						store(m_buffer[t + i]);
+					store(Type::Prim::Function);
+					for (size_t i = base_off + 2; i < t_size; i++)
+						store(t_data[i]);
+					auto s = m_size++ - base;
+
+					size_t c = 0;
+					bool must_have_next = false;
+					bool must_have_end = false;
+					while (true) {
+						if (Token::is_op(n, Token::Op::RPar)) {
+							if  (must_have_next)
+								error("Expected next arg");
+							break;
+						} else if (must_have_end)
+							error("Expected ')'");
+						must_have_next = false;
+						char id[256];
+						n = parse_type(n, id, base, m_size - base);
+						if (Token::type(n) == Token::Type::Identifier)
+							n = next_exp();
+						if (Token::is_op(n, Token::Op::Comma)) {
+							n = next_exp();
+							must_have_next = true;
+						} else
+							must_have_end = true;
+						c++;
+					}
+					if (c == 1 && m_buffer[base + s + 1] == static_cast<char>(Type::Prim::Void)) {
+						m_buffer[base + s] = 0;
+						m_size = base + s + 1;
+					} else
+						m_buffer[base + s] = c;
+
+					{
+						size_t t_size = m_size - base;
+						char t_data[t_size];
+						for (size_t i = 0; i < t_size; i++)
+							t_data[i] = m_buffer[t + i];
+						m_size = base;
+						cont_insert(m_cur, id);
+						alloc(t_size);
+						for (size_t i = 0; i < t_size; i++)
+							store(t_data[i]);
+					}
+
+					n = next_exp();
+					if (!Token::is_op(n, Token::Op::Semicolon))
+						error("Expected ';'");
+					return;
+				} else
+					goto base_member;
+			} else
+				error("Expected id");
 		}
+		base_member:
 		if (!Token::is_op(n, Token::Op::Semicolon))
 			error("Expected ';'");
-		size_t t_size = m_size - t;
-		char t_data[t_size];
-		for (size_t i = 0; i < t_size; i++)
-			t_data[i] = m_buffer[t + i];
-		m_size = t;
 		cont_insert(m_cur, id);
 		alloc(t_size);
 		for (size_t i = 0; i < t_size; i++)
@@ -852,7 +916,7 @@ private:
 					if (Token::type(n) != Token::Type::Identifier)
 						error("Expected identifier");
 					token_nter(nn, n);
-					if (cont_resolve(m_cur, nn, m_cur, true)) {
+					if (cont_resolve(m_cur, nn, m_cur)) {
 						if (cont_type(m_cur) != ContType::Namespace)
 							error("Not a namespace");
 					} else {
