@@ -817,7 +817,7 @@ private:
 						size_t t_size = m_size - base;
 						char t_data[t_size];
 						for (size_t i = 0; i < t_size; i++)
-							t_data[i] = m_buffer[t + i];
+							t_data[i] = m_buffer[base + i];
 						m_size = base;
 						cont_insert(m_cur, id);
 						alloc(t_size);

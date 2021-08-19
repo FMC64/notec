@@ -493,3 +493,37 @@ void* proc(int a, float);
 	test_assert(b[proc++] == static_cast<char>(Type::Prim::S32));
 	test_assert(b[proc++] == static_cast<char>(Type::Prim::FP32));
 }
+
+test_case(cpp_16)
+{
+	auto c = init_file(
+R"raw(
+
+void* proc(int a, float, const struct Str { short memb; } &c);
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, proc);
+	RESOLVE(0, Str);
+	auto Strb = Str;
+	{
+		RESOLVE(Strb, memb);
+		test_assert(b[memb++] == static_cast<char>(Type::Visib::Public));
+		test_assert(b[memb++] == static_cast<char>(Cpp::ContType::Member));
+		test_assert(b[memb++] == 0);
+		test_assert(b[memb++] == static_cast<char>(Type::Prim::S16));
+	}
+	test_assert(b[proc++] == static_cast<char>(Cpp::ContType::Member));
+	test_assert(b[proc++] == 0);
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Function));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Void));
+	test_assert(b[proc++] == static_cast<uint8_t>(3));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::S32));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::FP32));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Lref));
+	test_assert(b[proc++] == (Type::const_flag | static_cast<char>(Type::Prim::Struct)));
+	test_assert(load_part<3, uint32_t>(b + proc) == Strb);
+}
