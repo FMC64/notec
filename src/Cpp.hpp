@@ -749,9 +749,12 @@ private:
 		char id[256];
 		n = parse_type(n, id, t, base_off + 1);
 		if (*id == 0) {
-			auto p = Type::prim(m_buffer[t + base_off + 1]);
-			if (Token::is_op(n, Token::Op::Semicolon) && (p == Type::Prim::Struct || p == Type::Prim::Enum)) {
-				if ((m_buffer[t + base_off + 1] & (Type::const_flag | Type::volatile_flag)) || sto)
+			auto b = m_buffer[t + base_off + 1];
+			auto p = Type::prim(b);
+			if (Token::is_op(n, Token::Op::Semicolon)) {
+				if (p != Type::Prim::Struct && p != Type::Prim::Enum)
+					error("Illegal end of statement");
+				if (static_cast<char>(p) != b || sto)
 					error("Can't qualify struct/enum declaration");
 				m_size = t;	// remove in-building type
 				return;
