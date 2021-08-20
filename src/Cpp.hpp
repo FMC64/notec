@@ -1067,6 +1067,12 @@ public:
 		store(static_cast<char>(ContType::Namespace));
 		create_root();
 		store_part<3>(0);
+
+		cont_insert(0, "__builtin_va_list");
+		alloc(3);
+		store(ContType::Using);
+		store(Type::Prim::Ptr);
+		store(Type::Prim::S8);
 	}
 	~Cpp(void)
 	{
@@ -1092,6 +1098,11 @@ public:
 		const char *n;
 		while ((n = next()))
 			parse_obj(n);
+	}
+
+	inline size_t get_size(void) const
+	{
+		return m_size;
 	}
 
 	inline const char* get_buffer(void) const

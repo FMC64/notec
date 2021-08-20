@@ -17,8 +17,6 @@ static Cpp init_file(const char *src)
 	return res;
 }
 
-static inline constexpr size_t base = 8;
-
 #define RESOLVE(cont, name) uint32_t name; test_assert(c.cont_resolve(cont, #name, name, true));
 #define MUST_NOT_RESOLVE(cont, name) uint32_t name; test_assert(!c.cont_resolve(cont, #name, name, true));
 
@@ -49,6 +47,7 @@ test_case(cpp_1)
 test_case(cpp_2)
 {
 	auto c = init_file("typedef const struct { public: } S;");
+	auto base = c.get_size();
 	c.run();
 	auto b = c.get_buffer();
 
@@ -626,4 +625,27 @@ int printf(const char *fmt, ...);
 	test_assert(b[printf++] == static_cast<char>(0x80 | 0x01));
 	test_assert(b[printf++] == static_cast<char>(Type::Prim::Ptr));
 	test_assert(b[printf++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+}
+
+test_case(cpp_21)
+{
+	auto c = init_file(
+R"raw(
+
+int vprintf(const char *fmt, __builtin_va_list args);
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, vprintf);
+	test_assert(b[vprintf++] == static_cast<char>(Cpp::ContType::Member));
+	test_assert(b[vprintf++] == 0);
+	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::Function));
+	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::S32));
+	test_assert(b[vprintf++] == static_cast<char>(0x02));
+	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[vprintf++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::S8));
 }
