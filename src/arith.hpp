@@ -103,3 +103,22 @@ struct carray
 	static constexpr auto size(void) { return Size; }
 	T data[Size];
 };
+
+#define cpy_chunk(dst_id, base, end) char dst_id[(end) - (base)];	\
+	{								\
+		size_t size = (end) - (base);				\
+		for (size_t i = 0; i < size; i++)			\
+			dst_id[i] = (base)[i];				\
+	}								\
+
+#define load_chunk(dst_id, base_off, end_off) cpy_chunk(dst_id, m_buffer + (base_off), m_buffer + (end_off))
+
+#define cpy_chunk_back(dst, src)			\
+	[&]() -> size_t {				\
+		size_t size = sizeof(src);		\
+		for (size_t i = 0; i < size; i++)	\
+			(dst)[i] = (src)[i];		\
+		return sizeof(src);			\
+	}()						\
+
+#define store_chunk(src) m_size += cpy_chunk_back(m_buffer + m_size, src);

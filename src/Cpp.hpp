@@ -339,10 +339,6 @@ private:
 				single_op(Type::Prim::Lref, true);
 			else if (o == Token::Op::And)
 				single_op(Type::Prim::Rref, true);
-			else if (o == Token::Op::LPar) {
-				n = next_exp();
-				n = parse_type_extr_qual(n, nested_id, true);
-			}
 		}
 		return n;
 	}
@@ -625,6 +621,7 @@ private:
 	// nested_id will be filled with a null-terminated string, of size 0 if not found
 	inline const char* parse_type_base(const char *n, char *nested_id)
 	{
+		uint32_t off = m_size - m_building_type_base;
 		uint8_t attrs = 0;
 		n = acc_type_attrs(n, attrs);
 		ContType t_type = static_cast<ContType>(0);
@@ -726,16 +723,66 @@ private:
 				store_part<3>(t_ndx);
 			}
 		}
+		if (Token::is_op(n, Token::Op::LPar)) {
+			n = next_exp();
+			uint32_t extr_qual_base = m_size;
+			n = parse_type_extr_qual(n, nested_id, true);
+			if (Token::is_op(n, Token::Op::LPar)) {
+				n = next_exp();
+				load_chunk(ret, m_building_type_base + off, extr_qual_base);
+				load_chunk(extr_qual, extr_qual_base, m_size);
+				m_size = m_building_type_base + off;
+				alloc(sizeof(extr_qual) + 2 + sizeof(ret));
+				store_chunk(extr_qual);
+				store(Type::Prim::Function);
+				store_chunk(ret);
+
+				uint32_t c_off = m_size++ - m_building_type_base;
+				size_t c = 0;
+				bool must_have_next = false;
+				bool must_have_end = false;
+				while (true) {
+					if (Token::is_op(n, Token::Op::RPar)) {
+						if  (must_have_next)
+							error("Expected next arg");
+						n = next_exp();
+						break;
+					} else if (must_have_end)
+						error("Expected ')'");
+					must_have_next = false;
+					char id[256];
+					n = parse_type(n, id, m_building_type_base, m_size - m_building_type_base);
+					if (Token::type(n) == Token::Type::Identifier)
+						n = next_exp();
+					if (Token::is_op(n, Token::Op::Comma)) {
+						n = next_exp();
+						must_have_next = true;
+					} else
+						must_have_end = true;
+					c++;
+				}
+				if (c == 1 && m_buffer[m_building_type_base + c_off + 1] == static_cast<char>(Type::Prim::Void)) {
+					m_buffer[m_building_type_base + c_off] = 0;
+					m_size = m_building_type_base + c_off + 1;
+				} else
+					m_buffer[m_building_type_base + c_off] = c;
+			} else {
+				load_chunk(ret, m_building_type_base + off, extr_qual_base);
+				load_chunk(extr_qual, extr_qual_base, m_size);
+				m_size = m_building_type_base + off;
+				alloc(sizeof(extr_qual) + sizeof(ret));
+				store_chunk(extr_qual);
+				store_chunk(ret);
+			}
+		}
 		return n;
 	}
 
 	inline const char* parse_type(const char *n, char *nested_id, uint32_t &ndx, uint32_t base_off = 0)
 	{
-		auto old_base = m_building_type_base;
 		m_building_type_base = m_size - base_off;
 		auto res = parse_type_base(n, nested_id);
 		ndx = m_building_type_base;
-		m_building_type_base = old_base;
 		return res;
 	}
 
@@ -796,10 +843,7 @@ private:
 		char id[256];
 		n = parse_type(n, id, t, base_off + 2);
 
-		size_t t_size = m_size - t;
-		char t_data[t_size];
-		for (size_t i = 0; i < t_size; i++)
-			t_data[i] = m_buffer[t + i];
+		load_chunk(t_data, t, m_size);
 		m_size = t;
 
 		if (*id == 0) {
@@ -822,11 +866,11 @@ private:
 					n = next_exp();
 
 					uint32_t base = m_size;
-					alloc(t_size + 2);
+					alloc(sizeof(t_data) + 2);
 					for (size_t i = 0; i < base_off + 2; i++)
 						store(m_buffer[t + i]);
 					store(Type::Prim::Function);
-					for (size_t i = base_off + 2; i < t_size; i++)
+					for (size_t i = base_off + 2; i < sizeof(t_data); i++)
 						store(t_data[i]);
 					auto s = m_size++ - base;
 
@@ -859,15 +903,11 @@ private:
 						m_buffer[base + s] = c;
 
 					{
-						size_t t_size = m_size - base;
-						char t_data[t_size];
-						for (size_t i = 0; i < t_size; i++)
-							t_data[i] = m_buffer[base + i];
+						load_chunk(t_data, base, m_size);
 						m_size = base;
 						cont_insert(m_cur, id);
-						alloc(t_size);
-						for (size_t i = 0; i < t_size; i++)
-							store(t_data[i]);
+						alloc(sizeof(t_data));
+						store_chunk(t_data);
 					}
 
 					n = next_exp();
@@ -883,9 +923,8 @@ private:
 		if (!Token::is_op(n, Token::Op::Semicolon))
 			error("Expected ';'");
 		cont_insert(m_cur, id);
-		alloc(t_size);
-		for (size_t i = 0; i < t_size; i++)
-			store(t_data[i]);
+		alloc(sizeof(t_data));
+		store_chunk(t_data);
 	}
 
 	inline void parse_obj(const char *n, uint32_t base_off = 0)
