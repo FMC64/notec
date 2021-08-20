@@ -271,6 +271,47 @@ private:
 		return attrs & TypeAttr::Unsigned ? Type::Prim::U32 : Type::Prim::S32;	// must be int
 	}
 
+	inline const char* parse_type_extr_qual(const char *n, char *nested_id, bool exp_rpar)
+	{
+		auto single_op = [&](Type::Prim p, bool must_be_last){
+				n = next_exp();
+				uint8_t attrs = 0;
+				n = acc_type_attrs(n, attrs);
+				if (must_be_last) {
+					if (attrs)
+						error("Can't have more qualifiers");
+				} else if (attrs & ~TypeAttr::cv_mask)
+					error("Illegal qualifier: not an integer type");
+				n = parse_type_extr_qual(n, nested_id, false);
+				alloc(1);
+				store(static_cast<char>(attrs | static_cast<char>(p)));
+		};
+		auto t = Token::type(n);
+		if (t == Token::Type::Operator) {
+			auto o = Token::op(n);
+			if (o == Token::Op::Mul)
+				single_op(Type::Prim::Ptr, false);
+			else if (o == Token::Op::BitAnd)
+				single_op(Type::Prim::Lref, true);
+			else if (o == Token::Op::And)
+				single_op(Type::Prim::Rref, true);
+			else if (o == Token::Op::LPar) {
+				n = next_exp();
+				n = parse_type_extr_qual(n, nested_id, true);
+			}
+		} else if (t == Token::Type::Identifier) {
+			Token::fill_nter(nested_id, n);
+			n = next_exp();
+		} else
+			error("Expected id or op");
+		if (exp_rpar) {
+			if (!Token::is_op(n, Token::Op::RPar))
+				error("Expected ')'");
+			n = next_exp();
+		}
+		return n;
+	}
+
 	inline const char* parse_type_nprim(const char *n, char *nested_id)
 	{
 		auto single_op = [&](Type::Prim p, bool must_be_last){
@@ -298,6 +339,10 @@ private:
 				single_op(Type::Prim::Lref, true);
 			else if (o == Token::Op::And)
 				single_op(Type::Prim::Rref, true);
+			else if (o == Token::Op::LPar) {
+				n = next_exp();
+				n = parse_type_extr_qual(n, nested_id, true);
+			}
 		}
 		return n;
 	}

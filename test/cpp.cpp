@@ -527,3 +527,23 @@ void* proc(int a, float, const struct Str { short memb; } &c);
 	test_assert(b[proc++] == (Type::const_flag | static_cast<char>(Type::Prim::Struct)));
 	test_assert(load_part<3, uint32_t>(b + proc) == Strb);
 }
+
+test_case(cpp_17)
+{
+	auto c = init_file(
+R"raw(
+
+void* (*(&proc));
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, proc);
+	test_assert(b[proc++] == static_cast<char>(Cpp::ContType::Member));
+	test_assert(b[proc++] == 0);
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Lref));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[proc++] == static_cast<char>(Type::Prim::Void));
+}
