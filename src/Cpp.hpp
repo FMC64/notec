@@ -635,7 +635,7 @@ private:
 			auto t = Token::type(n);
 			if (t == Token::Type::Operator) {
 				auto ob = Token::op(n);
-				auto o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Void);
+				uint8_t o = static_cast<uint8_t>(ob) - static_cast<uint8_t>(Token::Op::Void);
 				if (o <= 4) {	// from op auto up to bool
 					n = next_exp();
 					n = acc_type_attrs(n, attrs);
@@ -738,17 +738,27 @@ private:
 				store_chunk(ret);
 
 				uint32_t c_off = m_size++ - m_building_type_base;
-				size_t c = 0;
+				uint8_t c = 0;
 				bool must_have_next = false;
 				bool must_have_end = false;
 				while (true) {
-					if (Token::is_op(n, Token::Op::RPar)) {
-						if  (must_have_next)
-							error("Expected next arg");
-						n = next_exp();
-						break;
-					} else if (must_have_end)
-						error("Expected ')'");
+					if (Token::type(n) == Token::Type::Operator) {
+						auto o = Token::op(n);
+						if (o == Token::Op::RPar) {
+							if  (must_have_next)
+								error("Expected next arg");
+							n = next_exp();
+							break;
+						} else if (o == Token::Op::Expand) {
+							c |= static_cast<uint8_t>(0x80);
+							n = next_exp();
+							if (!Token::is_op(n, Token::Op::RPar))
+								error("Expected ')'");
+							break;
+						}
+					}
+					if (must_have_end)
+							error("Expected ')'");
 					must_have_next = false;
 					char id[256];
 					n = parse_type(n, id, m_building_type_base, m_size - m_building_type_base);
@@ -874,15 +884,27 @@ private:
 						store(t_data[i]);
 					auto s = m_size++ - base;
 
-					size_t c = 0;
+					uint8_t c = 0;
 					bool must_have_next = false;
 					bool must_have_end = false;
 					while (true) {
-						if (Token::is_op(n, Token::Op::RPar)) {
-							if  (must_have_next)
-								error("Expected next arg");
-							break;
-						} else if (must_have_end)
+						if (Token::type(n) == Token::Type::Operator) {
+							auto o = Token::op(n);
+							if (o == Token::Op::RPar) {
+								if  (must_have_next)
+									error("Expected next arg");
+								n = next_exp();
+								break;
+							} else if (o == Token::Op::Expand) {
+								c |= static_cast<uint8_t>(0x80);
+								n = next_exp();
+								if (!Token::is_op(n, Token::Op::RPar))
+									error("Expected ')'");
+								n = next_exp();
+								break;
+							}
+						}
+						if (must_have_end)
 							error("Expected ')'");
 						must_have_next = false;
 						char id[256];
@@ -910,7 +932,6 @@ private:
 						store_chunk(t_data);
 					}
 
-					n = next_exp();
 					if (!Token::is_op(n, Token::Op::Semicolon))
 						error("Expected ';'");
 					return;

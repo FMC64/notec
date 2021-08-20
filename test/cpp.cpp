@@ -606,3 +606,24 @@ void* (*(&proc))(int, const struct Str { short memb; } &c);
 	test_assert(b[proc++] == (Type::const_flag | static_cast<char>(Type::Prim::Struct)));
 	test_assert(load_part<3, uint32_t>(b + proc) == Strb);
 }
+
+test_case(cpp_20)
+{
+	auto c = init_file(
+R"raw(
+
+int printf(const char *fmt, ...);
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+	RESOLVE(0, printf);
+	test_assert(b[printf++] == static_cast<char>(Cpp::ContType::Member));
+	test_assert(b[printf++] == 0);
+	test_assert(b[printf++] == static_cast<char>(Type::Prim::Function));
+	test_assert(b[printf++] == static_cast<char>(Type::Prim::S32));
+	test_assert(b[printf++] == static_cast<char>(0x80 | 0x01));
+	test_assert(b[printf++] == static_cast<char>(Type::Prim::Ptr));
+	test_assert(b[printf++] == (Type::const_flag | static_cast<char>(Type::Prim::S8)));
+}
