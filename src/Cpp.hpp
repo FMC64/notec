@@ -525,17 +525,9 @@ private:
 				n = next_exp();
 
 				auto last_cur = m_cur;
-				if (res) {	// define struct in existing
-					if (cont_type(res) != ContType::Enum)
-						error("Not an enum-like");
-					if (is_map(cont_map(res)))
-						error("Multiple definition");
-					m_cur = res;	// original definition is now current context
-					enum_ndx = m_cur;
-					::store(m_buffer + res + 4, static_cast<char>(0x7F));
-					m_buffer[res + Cont::Enum::is_class_off] = is_class;
-					m_buffer[res + Cont::Enum::underlying_type_off] = t;
-				} else {	// create enum entry
+				if (res)
+					error("Multiple definition");
+				else {	// create enum entry
 					if (*id)	// otherwise anonymous enum
 						cont_insert(m_cur, id);
 					if (m_has_visib) {
@@ -608,7 +600,7 @@ private:
 	inline uint32_t skip_type(uint32_t t)
 	{
 		while (true) {
-			auto c = Type::prim(m_buffer[t]);
+			auto c = Type::prim(m_buffer[t++]);
 			if (c <= Type::Prim::U64) {
 				t++;
 				return t;
@@ -627,7 +619,7 @@ private:
 			if (c == Type::Prim::Struct) {
 				auto s_ndx = load_part<3, uint32_t>(m_buffer + t) + Cont::Struct::temp_args_off;
 				t += 6;
-				t = skip_template_args(t, s_ndx);
+				t = skip_template_args(s_ndx, t);
 				return t;
 			}
 
@@ -749,8 +741,9 @@ private:
 			alloc(1);
 			store(type);
 			if (t_type == ContType::Struct || t_type == ContType::Enum) {
-				alloc(3);
+				alloc(6);
 				store_part<3>(t_ndx);
+				store_part<3>(0);
 			}
 		}
 		if (Token::is_op(n, Token::Op::LPar)) {
@@ -1001,17 +994,13 @@ private:
 				char id[256];
 				uint32_t t;
 				n = parse_type_id(n, id, t, base_off + 1);
-				{
-					size_t t_size = m_size - t;
-					char t_data[t_size];
-					for (size_t i = 0; i < t_size; i++)
-						t_data[i] = m_buffer[t + i];
-					m_size = t;
-					cont_insert(m_cur, id);
-					alloc(t_size);
-					for (size_t i = 0; i < t_size; i++)
-						store(t_data[i]);
-				}
+
+				load_chunk(t_data, t, m_size);
+				m_size = t;
+				cont_insert(m_cur, id);
+				alloc(sizeof(t_data));
+				store_chunk(t_data);
+
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");
 				return;
@@ -1027,18 +1016,14 @@ private:
 				char id[256];
 				uint32_t t;
 				n = parse_type(n, id, t);
-				{
-					size_t t_size = m_size - t;
-					char t_data[t_size];
-					for (size_t i = 0; i < t_size; i++)
-						t_data[i] = m_buffer[t + i];
-					m_size = t;
-					cont_insert(m_cur, nn);
-					alloc(1 + t_size);
-					store(ContType::Using);
-					for (size_t i = 0; i < t_size; i++)
-						store(t_data[i]);
-				}
+
+				load_chunk(t_data, t, m_size);
+				m_size = t;
+				cont_insert(m_cur, nn);
+				alloc(1 + sizeof(t_data));
+				store(ContType::Using);
+				store_chunk(t_data);
+
 				if (!Token::is_op(n, Token::Op::Semicolon))
 					error("Expected ';'");
 				return;
@@ -1053,11 +1038,14 @@ private:
 						if (cont_type(m_cur) != ContType::Namespace)
 							error("Not a namespace");
 					} else {
-						cont_insert(m_cur, nn);
+						if (cont_type(m_cur) != ContType::Namespace)
+							error("Not a namespace");
+						auto par = m_cur;
+						cont_insert(par, nn);
 						m_cur = m_size;
 						alloc(Cont::cont_ovhead);
 						store(static_cast<char>(ContType::Namespace));
-						store_part<3>(0);
+						store_part<3>(par);
 						create_root();
 					}
 					n = next_exp();
@@ -1091,6 +1079,8 @@ private:
 
 	inline uint32_t skip_template_args(uint32_t types, uint32_t args)
 	{
+		if (static_cast<uint8_t>(m_buffer[types++]) != 0)
+			error("Not implemented");
 		return args;
 	}
 
