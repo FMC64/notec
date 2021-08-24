@@ -49,17 +49,28 @@ public:
 		// 1 - type
 		// 4 - map root
 		// 3 - parent
-		// TOTAL: 8
-		// BELOW NOT USED FOR NOW
+		// STATIC TOTAL: 8
 		// 1 - arg count
 		// arg count args
+
+		// BELOW NOT USED FOR NOW
 		// 1 - non static member count
-		// non static members indexes, three bytes each
+		// non static members indices, three bytes each
 		Struct,
 
-		Using,	// then type
+		// 1 - arg count
+		// arg count args
+		// type
+		Using,
+
 		Value,	// then type, then value
 		Member	// then storage, type and value (opt)
+	};
+
+	struct Cont {
+		struct Struct {
+			static inline constexpr size_t temp_arg_off = 8;
+		};
 	};
 
 	inline ContType cont_type(uint32_t cont) const
@@ -588,16 +599,17 @@ private:
 		return n;
 	}
 
+	inline uint32_t skip_template_args(uint32_t args, uint32_t types)
+	{
+		return args;
+	}
+
 	inline uint32_t skip_type(uint32_t t)
 	{
 		while (true) {
 			auto c = Type::prim(m_buffer[t]);
-			if (c < Type::Prim::Struct) {
+			if (c <= Type::Prim::U64) {
 				t++;
-				return t;
-			}
-			if (c == Type::Prim::Struct || c == Type::Prim::Enum) {
-				t += 4;
 				return t;
 			}
 			if (c == Type::Prim::Function) {
@@ -607,6 +619,23 @@ private:
 					t = skip_type(t);
 				return t;
 			}
+			if (c == Type::Prim::Enum) {
+				t += 6;
+				return t;
+			}
+			if (c == Type::Prim::Struct) {
+				auto s_ndx = load_part<3, uint32_t>(m_buffer + t) + Cont::Struct::temp_arg_off;
+				t += 6;
+				t = skip_template_args(t, s_ndx);
+				return t;
+			}
+
+			/*if (c == Type::Prim::Scope) {
+			if (c == Type::Prim::TemplateArg) {
+				t += 4;
+				return t;
+			}*/
+
 			t++;
 		}
 	}

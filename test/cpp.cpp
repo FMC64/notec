@@ -649,3 +649,30 @@ int vprintf(const char *fmt, __builtin_va_list args);
 	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::Ptr));
 	test_assert(b[vprintf++] == static_cast<char>(Type::Prim::S8));
 }
+
+test_case(cpp_22)
+{
+	auto c = init_file(
+R"raw(
+
+template <typename T, typename F>
+struct A {
+	class B {
+	};
+
+	enum class E : F {
+		Base,// = T,
+		Next
+	};
+};
+
+using Au = const A</*4, */float, int>;
+
+using C = Au::B;
+//static inline constexpr auto v = Au::E::Next;
+
+)raw"
+);
+	c.run();
+	auto b = c.get_buffer();
+}

@@ -1,5 +1,24 @@
 #pragma once
 
+namespace Template {
+
+namespace Arg {
+
+enum class Kind : char {
+	Type,
+	Integral
+};
+
+}
+
+enum class Type : char {
+	Template,
+	Typename,
+	Class
+};
+
+}
+
 namespace Type {
 
 enum class Prim : char {
@@ -16,20 +35,21 @@ enum class Prim : char {
 	S64,
 	U64,
 
-	Struct,	// followed by 3 bytes of index to struct def
-	Enum,	// followed by 3 bytes of index to enum def
 	Function,	// return type then 1 byte arg count, then arg count types
+	Enum,	// followed by 3 bytes of index to enum def
+	Struct,	// followed by 3 bytes of index to struct def, then 3 bytes to instance parent, then struct arg count args
+
+	Scope,	// then cstr for the object to resolve
+	TemplateInvoke,	// then 1 byte of arg count, and arg count args
+	TemplateArg,	// then 3 byte of scope index (0 = current, 1 = cur parent, ...), then 1 byte of template arg within such scope
+	End,
 
 	Ptr,
 	Array,
 
 	// from now on, quite high level stuff that will be implemented later™
 	Lref,
-	Rref,
-
-	// edit Cpp::skip_type when finally used
-	//Param,	// followed by 1 byte of index to invocation table
-	//Invoke	// 3 bytes = template index, then 1 byte = arg count, then arg count types
+	Rref
 };
 
 static inline constexpr char const_flag = 0x40;
