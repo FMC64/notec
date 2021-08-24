@@ -8,7 +8,6 @@ class Cpp : private Map
 {
 	Pp m_pp;
 	uint32_t m_cur;
-	uint32_t m_cur_alt = 0;
 
 	inline void error(const char *str)
 	{
@@ -33,22 +32,23 @@ class Cpp : private Map
 public:
 	enum class ContType : char {
 		// 1 - type
-		// 4 - map root
 		// 3 - parent
+		// 4 - map root
 		// TOTAL: 8
 		Namespace,
 
 		// 1 - type
-		// 4 - map root
 		// 3 - parent
+		// 4 - map root
 		// 1 - is class
 		// 1 - underlying type
 		// TOTAL: 10
 		Enum,
 
 		// 1 - type
-		// 4 - map root
 		// 3 - parent
+		// 4 - map root
+		// 1 - is_union
 		// STATIC TOTAL: 8
 		// 1 - arg count
 		// arg count args
@@ -58,6 +58,8 @@ public:
 		// non static members indices, three bytes each
 		Struct,
 
+		// 1 - type
+		// 3 - parent
 		// 1 - arg count
 		// arg count args
 		// type
@@ -68,8 +70,23 @@ public:
 	};
 
 	struct Cont {
+		static inline constexpr size_t type_off = 0;
+		static inline constexpr size_t parent_off = 1;
+		static inline constexpr size_t map_off = 4;
+		static inline constexpr size_t cont_ovhead = 8;
+
+		struct Enum {
+			static inline constexpr size_t is_class_off = cont_ovhead + 0;
+			static inline constexpr size_t underlying_type_off = cont_ovhead + 1;
+
+			static inline constexpr size_t static_size = underlying_type_off + 1;
+		};
+
 		struct Struct {
-			static inline constexpr size_t temp_arg_off = 8;
+			static inline constexpr size_t is_union_off = cont_ovhead + 0;
+			static inline constexpr size_t temp_args_off = cont_ovhead + 1;
+
+			static inline constexpr size_t static_size = temp_args_off + 1;
 		};
 	};
 
@@ -84,7 +101,7 @@ public:
 		if (t > ContType::Struct)
 			error("Not a namespace or struct");
 		auto r = cont_map(cont);
-		if (t == ContType::Struct || t == ContType::Enum)
+		if (t == ContType::Struct)
 			if (!is_map(r))
 				error("Not yet defined");
 		return r;
@@ -92,7 +109,7 @@ public:
 
 	inline uint32_t cont_map(uint32_t cont) const
 	{
-		return cont + 1;
+		return cont + Cont::map_off;
 	}
 
 	inline bool is_map(uint32_t map) const
@@ -102,7 +119,7 @@ public:
 
 	inline uint32_t cont_parent(uint32_t cont) const
 	{
-		return load_part<3, uint32_t>(m_buffer + cont + 5);
+		return load_part<3, uint32_t>(m_buffer + cont + Cont::parent_off);
 	}
 
 	inline uint32_t cont_skip_overhead(uint32_t cont, uint32_t resolved) const
@@ -151,8 +168,6 @@ private:
 	inline bool cont_resolve_rev(const char *name, uint32_t &res)
 	{
 		if (cont_resolve_rev(m_cur, name, res))
-			return true;
-		else if (m_cur_alt != 0 && cont_resolve_rev(m_cur_alt, name, res))
 			return true;
 		else
 			return false;
@@ -368,6 +383,7 @@ private:
 		for (size_t i = 0; i < cur_type_size; i++)
 			cur_type[i] = m_buffer[m_building_type_base + i];
 		n = res_or_id(n, res, id);
+		auto is_union = static_cast<char>(kind == Token::Op::Union);
 		if (Token::type(n) == Token::Type::Operator) {
 			auto o = Token::op(n);
 			if (o == Token::Op::LBra) {	// define
@@ -375,7 +391,6 @@ private:
 				n = next_exp();
 
 				auto last_cur = m_cur;
-				auto last_alt = m_cur_alt;
 				if (res) {	// define struct in existing
 					if (cont_type(res) != ContType::Struct)
 						error("Not a struct-like");
@@ -383,8 +398,11 @@ private:
 						error("Multiple definition");
 					m_cur = res;	// original definition is now current context
 					struct_ndx = m_cur;
-					m_cur_alt = m_cur;	// set current context as fallback for resolution
-					::store(m_buffer + res + 4, static_cast<char>(0x7F));
+					::store(m_buffer + res + Cont::map_off + 3, static_cast<char>(0x7F));
+					if (m_buffer[res + Cont::Struct::is_union_off] != is_union)
+						error("Struct type mismatch");
+					if (m_buffer[res + Cont::Struct::temp_args_off] != 0)
+						error("Does not match prev. declaration");
 				} else {	// create struct entry
 					if (*id)	// otherwise anonymous struct
 						cont_insert(m_cur, id);
@@ -394,11 +412,12 @@ private:
 					}
 					m_cur = m_size;
 					struct_ndx = m_cur;
-					m_cur_alt = 0;
-					alloc(8);
+					alloc(Cont::Struct::static_size);
 					store(static_cast<char>(ContType::Struct));
-					create_root();
 					store_part<3>(last_cur);	// reference parent
+					create_root();
+					store(is_union);
+					store(static_cast<char>(0));
 				}
 
 				auto last_has_visib = m_has_visib;
@@ -431,19 +450,24 @@ private:
 				m_has_visib = last_has_visib;
 				m_cur_visib = last_visib;
 
-				m_cur_alt = last_alt;
 				m_cur = last_cur;
 				goto wrote_def;
 			} else if (o == Token::Op::Semicolon) {	// fwd
 				if (res != 0) {	// already declared or fwd
 					if (cont_type(res) != ContType::Struct)
 						error("Invalid fwd");
+					if (m_buffer[res + Cont::Struct::is_union_off] != is_union)
+						error("Struct type mismatch");
+					if (m_buffer[res + Cont::Struct::temp_args_off] != 0)
+						error("Does not match prev. declaration");
 				} else if (*id) {
 					cont_insert(m_cur, id);
-					alloc(8);
+					alloc(Cont::Struct::static_size);
 					store(static_cast<char>(ContType::Struct));
-					store(static_cast<uint32_t>(0));	// fwd: 0 map
 					store_part<3>(m_cur);	// reference parent
+					store(static_cast<uint32_t>(0));	// fwd: 0 map
+					store(is_union);
+					store(static_cast<char>(0));
 					goto wrote_def;
 				} else
 					error("Can't fwd declare unnamed struct");
@@ -501,7 +525,6 @@ private:
 				n = next_exp();
 
 				auto last_cur = m_cur;
-				auto last_alt = m_cur_alt;
 				if (res) {	// define struct in existing
 					if (cont_type(res) != ContType::Enum)
 						error("Not an enum-like");
@@ -509,10 +532,9 @@ private:
 						error("Multiple definition");
 					m_cur = res;	// original definition is now current context
 					enum_ndx = m_cur;
-					m_cur_alt = m_cur;	// set current context as fallback for resolution
 					::store(m_buffer + res + 4, static_cast<char>(0x7F));
-					m_buffer[res + 7] = is_class;
-					m_buffer[res + 8] = t;
+					m_buffer[res + Cont::Enum::is_class_off] = is_class;
+					m_buffer[res + Cont::Enum::underlying_type_off] = t;
 				} else {	// create enum entry
 					if (*id)	// otherwise anonymous enum
 						cont_insert(m_cur, id);
@@ -522,11 +544,10 @@ private:
 					}
 					m_cur = m_size;
 					enum_ndx = m_cur;
-					m_cur_alt = 0;
-					alloc(10);
+					alloc(Cont::Enum::static_size);
 					store(static_cast<char>(ContType::Enum));
-					create_root();
 					store_part<3>(last_cur);	// reference parent
+					create_root();
 					store(static_cast<char>(is_class));
 					store(t);
 				}
@@ -563,25 +584,10 @@ private:
 					c++;
 				};
 
-				m_cur_alt = last_alt;
 				m_cur = last_cur;
 				goto wrote_def;
-			} else if (o == Token::Op::Semicolon) {	// fwd, illegal but why not for now
-				if (res != 0) {	// already declared or fwd
-					if (cont_type(res) != ContType::Enum)
-						error("Invalid fwd");
-				} else if (*id) {
-					cont_insert(m_cur, id);
-					alloc(10);
-					store(static_cast<char>(ContType::Enum));
-					store(static_cast<uint32_t>(0));	// fwd: 0 map
-					store_part<3>(m_cur);	// reference parent
-					m_size += 2;
-					goto wrote_def;
-				} else
-					error("Can't fwd declare unnamed enum");
-				return n;
-			}
+			} else if (o == Token::Op::Semicolon)
+				error("Fwd enum declaration is illegal");
 		}
 		// reference
 		if (res)
@@ -597,11 +603,6 @@ private:
 		for (size_t i = 0; i < cur_type_size; i++)
 			store(cur_type[i]);
 		return n;
-	}
-
-	inline uint32_t skip_template_args(uint32_t args, uint32_t types)
-	{
-		return args;
 	}
 
 	inline uint32_t skip_type(uint32_t t)
@@ -624,7 +625,7 @@ private:
 				return t;
 			}
 			if (c == Type::Prim::Struct) {
-				auto s_ndx = load_part<3, uint32_t>(m_buffer + t) + Cont::Struct::temp_arg_off;
+				auto s_ndx = load_part<3, uint32_t>(m_buffer + t) + Cont::Struct::temp_args_off;
 				t += 6;
 				t = skip_template_args(t, s_ndx);
 				return t;
@@ -1044,8 +1045,6 @@ private:
 			} else if (o == Token::Op::Namespace) {
 				n = next_exp();
 				auto last_cur = m_cur;
-				auto last_alt = m_cur_alt;
-				m_cur_alt = 0;
 				while (true) {
 					if (Token::type(n) != Token::Type::Identifier)
 						error("Expected identifier");
@@ -1056,10 +1055,10 @@ private:
 					} else {
 						cont_insert(m_cur, nn);
 						m_cur = m_size;
-						alloc(8);
+						alloc(Cont::cont_ovhead);
 						store(static_cast<char>(ContType::Namespace));
-						create_root();
 						store_part<3>(0);
+						create_root();
 					}
 					n = next_exp();
 					if (Token::type(n) == Token::Type::Operator) {
@@ -1080,22 +1079,66 @@ private:
 					parse_obj(n, base_off);
 					n = next_exp();
 				}
-				m_cur_alt = last_alt;
 				m_cur = last_cur;
+				return;
+			} else if (o == Token::Op::Template) {
+				parse_template();
 				return;
 			}
 		}
 		parse_memb(n, base_off);
 	}
 
+	inline uint32_t skip_template_args(uint32_t types, uint32_t args)
+	{
+		return args;
+	}
+
+	inline uint32_t skip_template_arg_type(uint32_t t)
+	{
+		t++;	// skip is_pack;
+		if (m_buffer[t++])	// is_integral
+			t += type_size(t);
+		else {
+			auto a = static_cast<Template::ArgType>(m_buffer[t++]);
+			if (a == Template::ArgType::Template)
+				t += template_args_types_size(t);
+			t++;
+		}
+		return t;
+	}
+
+	inline uint32_t skip_template_args_types(uint32_t types)
+	{
+		auto c = static_cast<uint8_t>(m_buffer[types++]);
+		for (uint8_t i = 0; i < c; i++)
+			types = skip_template_arg_type(types);
+		return types;
+	}
+
+	inline uint32_t template_args_types_size(uint32_t types)
+	{
+		return skip_template_args_types(types) - types;
+	}
+
+	const char* parse_template(void)
+	{
+		auto n = next_exp();
+		if (!Token::is_op(n, Token::Op::Less))
+			error("Expected '<'");
+		while (true) {
+
+		}
+	}
+
 public:
 	Cpp(void)
 	{
 		m_cur = m_size;
-		alloc(8);
+		alloc(Cont::cont_ovhead);
 		store(static_cast<char>(ContType::Namespace));
-		create_root();
 		store_part<3>(0);
+		create_root();
 
 		cont_insert(0, "__builtin_va_list");
 		alloc(3);

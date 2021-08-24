@@ -2,16 +2,7 @@
 
 namespace Template {
 
-namespace Arg {
-
-enum class Kind : char {
-	Type,
-	Integral
-};
-
-}
-
-enum class Type : char {
+enum class ArgType : char {
 	Template,
 	Typename,
 	Class
@@ -40,6 +31,7 @@ enum class Prim : char {
 	Struct,	// followed by 3 bytes of index to struct def, then 3 bytes to instance parent, then struct arg count args
 
 	Scope,	// then cstr for the object to resolve
+	Template,	// then 3 bytes to template (struct) def
 	TemplateInvoke,	// then 1 byte of arg count, and arg count args
 	TemplateArg,	// then 3 byte of scope index (0 = current, 1 = cur parent, ...), then 1 byte of template arg within such scope
 	End,
