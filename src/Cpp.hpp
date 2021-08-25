@@ -76,15 +76,16 @@ public:
 		static inline constexpr size_t cont_ovhead = 8;
 
 		struct Enum {
-			static inline constexpr size_t is_class_off = cont_ovhead + 0;
-			static inline constexpr size_t underlying_type_off = cont_ovhead + 1;
+			static inline constexpr size_t is_class_off = cont_ovhead;
+			static inline constexpr size_t underlying_type_off = is_class_off + 1;
 
 			static inline constexpr size_t static_size = underlying_type_off + 1;
 		};
 
 		struct Struct {
-			static inline constexpr size_t is_union_off = cont_ovhead + 0;
-			static inline constexpr size_t temp_args_off = cont_ovhead + 1;
+			static inline constexpr size_t is_union_off = cont_ovhead;
+			static inline constexpr size_t spec_off = is_union_off + 1;
+			static inline constexpr size_t temp_args_off = spec_off + 3;
 
 			static inline constexpr size_t static_size = temp_args_off + 1;
 		};
@@ -417,6 +418,7 @@ private:
 					store_part<3>(last_cur);	// reference parent
 					create_root();
 					store(is_union);
+					store_part<3>(static_cast<uint32_t>(0));
 					store(static_cast<char>(0));
 				}
 
@@ -467,6 +469,7 @@ private:
 					store_part<3>(m_cur);	// reference parent
 					store(static_cast<uint32_t>(0));	// fwd: 0 map
 					store(is_union);
+					store_part<3>(static_cast<uint32_t>(0));
 					store(static_cast<char>(0));
 					goto wrote_def;
 				} else
