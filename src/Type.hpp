@@ -2,11 +2,14 @@
 
 namespace Template {
 
-enum class ArgType : char {
-	Template,
-	Typename,
-	Class
-};
+namespace ArgType {
+
+static inline constexpr uint8_t is_pack_flag = 0x01;		// has_default_flag is not set
+static inline constexpr uint8_t is_integral_flag = 0x02;	// is_template_flag is not set
+static inline constexpr uint8_t is_template_flag = 0x04;	// is_integral_flag is not set
+static inline constexpr uint8_t has_default_flag = 0x08;
+
+}
 
 }
 

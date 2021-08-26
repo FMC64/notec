@@ -5,9 +5,11 @@
 
 class Map
 {
-protected:
+public:
 	size_t m_size = 0;
+private:
 	size_t m_allocated = 0;
+public:
 	char *m_buffer = nullptr;
 
 public:

@@ -646,25 +646,12 @@ test_case(cpp_22)
 	auto c = init_file(
 R"raw(
 
-template <typename T, typename F>
-struct A {
-	class B {
-	};
-
-	enum class E : F {
-		Base,// = T,
-		Next
-	};
+template <typename T, typename F = int>
+struct struct A {
 };
-
-using Au = const A</*4, */float, int>;
-
-using C = Au::B;
-//static inline constexpr auto v = Au::E::Next;
 
 )raw"
 );
-	return;
 	c.run();
 	auto b = c.get_buffer();
 }
