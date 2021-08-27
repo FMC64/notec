@@ -646,12 +646,30 @@ test_case(cpp_22)
 	auto c = init_file(
 R"raw(
 
-template <typename T, typename F = int>
-struct struct A {
+template <template <typename...> typename T, typename F = int, auto G>
+struct A {
 };
 
 )raw"
 );
 	c.run();
 	auto b = c.get_buffer();
+	RESOLVE(0, A);
+	test_assert(b[A++] == static_cast<char>(Cpp::ContType::Struct));
+	test_assert(load_part<3, uint32_t>(b + A) == 0);
+	A += 7;
+	test_assert(b[A++] == static_cast<char>(0));	// is_union
+	test_assert(load_part<3, uint32_t>(b + A) == 0);	// spec
+	A += 3;
+	test_assert(b[A++] == static_cast<char>(3));	// temp arg count
+
+	test_assert(b[A++] == static_cast<char>(Template::ArgType::is_template_flag));	// first arg
+	test_assert(b[A++] == static_cast<char>(1));
+	test_assert(b[A++] == static_cast<char>(Template::ArgType::is_pack_flag));
+
+	test_assert(b[A++] == static_cast<char>(Template::ArgType::has_default_flag));	// second arg
+	test_assert(b[A++] == static_cast<char>(Type::Prim::S32));
+
+	test_assert(b[A++] == static_cast<char>(Template::ArgType::is_integral_flag));	// third arg
+	test_assert(b[A++] == static_cast<char>(Type::Prim::Auto));
 }

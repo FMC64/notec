@@ -603,17 +603,17 @@ private:
 		return n;
 	}
 
-	inline uint32_t skip_type(uint32_t t)
+	inline const char* skip_type(const char *t)
 	{
 		while (true) {
-			auto c = Type::prim(m_buffer[t++]);
+			auto c = Type::prim(*t++);
 			if (c <= Type::Prim::U64) {
 				t++;
 				return t;
 			}
 			if (c == Type::Prim::Function) {
 				t = skip_type(t);
-				uint8_t s = m_buffer[t++];
+				uint8_t s = *t++;
 				for (uint8_t i = 0; i < s; i++)
 					t = skip_type(t);
 				return t;
@@ -623,9 +623,9 @@ private:
 				return t;
 			}
 			if (c == Type::Prim::Struct) {
-				auto s_ndx = load_part<3, uint32_t>(m_buffer + t) + Cont::Struct::temp_args_off;
+				auto s_ndx = load_part<3, uint32_t>(t) + Cont::Struct::temp_args_off;
 				t += 6;
-				t = skip_template_args(s_ndx, t);
+				t = skip_template_args(m_buffer + s_ndx, t);
 				return t;
 			}
 
@@ -639,7 +639,7 @@ private:
 		}
 	}
 
-	inline uint32_t type_size(uint32_t t)
+	inline uint32_t type_size(const char *t)
 	{
 		return skip_type(t) - t;
 	}
@@ -737,7 +737,7 @@ private:
 		*nested_id = 0;
 		n = parse_type_nprim(n, nested_id);
 		if (t_type == ContType::Using) {
-			auto s = type_size(t_ndx);
+			auto s = type_size(m_buffer + t_ndx);
 			alloc(s);
 			auto base = m_size;
 			for (size_t i = 0; i < s; i++)
@@ -1083,16 +1083,16 @@ private:
 		parse_memb(n, base_off);
 	}
 
-	inline uint32_t skip_template_args(uint32_t types, uint32_t args)
+	inline const char* skip_template_args(const char *types, const char *args)
 	{
-		if (static_cast<uint8_t>(m_buffer[types++]) != 0)
+		if (static_cast<uint8_t>(*types++) != 0)
 			error("Not implemented");
 		return args;
 	}
 
-	inline uint32_t skip_template_arg_type(uint32_t t)
+	inline const char* skip_template_arg_type(const char *t)
 	{
-		auto s = m_buffer[t++];
+		auto s = *t++;
 		if (s & Template::ArgType::is_template_flag)
 			t += template_args_types_size(t);
 		else if (s & Template::ArgType::is_integral_flag)
@@ -1106,15 +1106,15 @@ private:
 		return t;
 	}
 
-	inline uint32_t skip_template_args_types(uint32_t types)
+	inline const char* skip_template_args_types(const char *types)
 	{
-		auto c = static_cast<uint8_t>(m_buffer[types++]);
+		auto c = static_cast<uint8_t>(*types++);
 		for (uint8_t i = 0; i < c; i++)
 			types = skip_template_arg_type(types);
 		return types;
 	}
 
-	inline uint32_t template_args_types_size(uint32_t types)
+	inline uint32_t template_args_types_size(const char *types)
 	{
 		return skip_template_args_types(types) - types;
 	}
@@ -1130,6 +1130,7 @@ private:
 		alloc(1);
 		uint32_t ac = m_size++ - base;
 		uint8_t c = 0;
+		auto temp_base = m_temp.m_size;
 		auto r = m_temp.create_root();
 		while (true) {
 			uint32_t sign_ndx = 0;
@@ -1198,6 +1199,8 @@ private:
 			c++;
 		}
 		m_buffer[base + ac] = c;
+		m_temp.alloc(3);
+		m_temp.store_part<3>(static_cast<uint32_t>(m_temp.m_size + 3 - temp_base));
 		res = base;
 		return n;
 	}
@@ -1209,8 +1212,6 @@ private:
 		uint32_t base = m_size++;
 		uint8_t c = 0;
 		do {
-			alloc(3);
-			store_part<3>(static_cast<uint32_t>(m_temp.m_size));
 			n = parse_template_args_types(base, m_size - base);
 			c++;
 		} while (Token::is_op(n, Token::Op::Template));
@@ -1219,15 +1220,65 @@ private:
 		return n;
 	}
 
+	inline void parse_struct_template(Token::Op kind, const char *args)
+	{
+		auto last_cur = m_cur;
+		auto n = next_exp();
+		if (Token::is_op(n, Token::Op::Scope)) {
+			m_cur = 0;
+		} else if (Token::type(n) == Token::Type::Identifier) {
+			token_nter(nn, n);
+			if (!cont_resolve(m_cur, nn, m_cur)) {
+				if (m_has_visib) {
+					alloc(1);
+					store(static_cast<char>(m_cur_visib));
+				}
+				cont_insert(m_cur, nn);
+				auto def = m_size;
+				alloc(Cont::Struct::static_size);
+				store(ContType::Struct);
+				store_part<3>(static_cast<uint32_t>(m_cur));
+				m_cur = def;
+				store(static_cast<uint32_t>(0));	// map
+				store(static_cast<char>(kind == Token::Op::Union));	// is_union
+				store_part<3>(static_cast<uint32_t>(0));	// spec
+				if (*args++ != 1)
+					error("Expected one template list for first declaration");
+				cpy_chunk(a, args, args + template_args_types_size(args));
+				alloc(sizeof(a));
+				store_chunk(a);
+
+				n = next_exp();
+				goto resolved_cur;
+			}
+		} else
+			error("Expected :: or id");
+
+		resolved_cur:;
+		if (Token::type(n) != Token::Type::Operator)
+			error("Expected op");
+		auto o = Token::op(n);
+		if (o == Token::Op::Semicolon) {
+		} else if (o == Token::Op::LBra) {
+			m_buffer[m_cur + Cont::map_off + 3] = static_cast<char>(0x7F);
+			n = parse_struct_members(next_exp(), kind);
+			if (!Token::is_op(n, Token::Op::Semicolon))
+				error("Expected ';'");
+		} else
+			error("Expected ';' or '{'");
+		m_cur = last_cur;
+	}
+
 	inline void parse_template(void)
 	{
 		uint32_t ts;
 		auto n = parse_template_args_types_stmts(ts);
+		load_chunk(args, ts, m_size);
+		m_size = ts;
 		if (Token::type(n) == Token::Type::Operator) {
 			auto o = Token::op(n);
-			if (o >= Token::Op::Class && o <= Token::Op::Union) {
-				return;
-			}
+			if (o >= Token::Op::Class && o <= Token::Op::Union)
+				return parse_struct_template(o, args);
 		}
 		error("Illegal template");
 		__builtin_unreachable();
